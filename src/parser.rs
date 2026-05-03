@@ -1,0 +1,487 @@
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::Path;
+use regex::Regex;
+use std::sync::OnceLock;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RawShortcut {
+    pub source: String,
+    pub trigger: String,
+    pub keys: Vec<String>,
+    pub action: String,
+    pub desc: String,
+}
+
+#[derive(Deserialize)]
+struct SystemShortcut {
+    mods: Vec<String>,
+    key: String,
+    desc: String,
+}
+
+struct ShortcutEntry {
+    source_tag: String,
+    action: String,
+    description: String,
+}
+
+struct ShortcutData {
+    entries: Vec<ShortcutEntry>,
+}
+
+pub fn run_parser(output_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let mut all_shortcuts: HashMap<String, ShortcutData> = HashMap::new();
+
+    load_system_shortcuts(&mut all_shortcuts)?;
+    
+    let home = std::env::var("HOME")?;
+    
+    let karabiner_path = format!("{}/.config/karabiner/karabiner.json", home);
+    if let Err(e) = parse_karabiner_json(&karabiner_path, &mut all_shortcuts) {
+        eprintln!("[Warn] Error parsing Karabiner: {}", e);
+    }
+
+    let skhd_path = format!("{}/.skhdrc", home);
+    if let Err(e) = parse_skhd_config(&skhd_path, &mut all_shortcuts) {
+        eprintln!("[Warn] Error parsing skhd: {}", e);
+    }
+
+    export_json(all_shortcuts, output_path)?;
+    Ok(())
+}
+
+fn format_key(key_str: &str) -> String {
+    if key_str.is_empty() {
+        return String::new();
+    }
+
+    let k = key_str.to_lowercase();
+    match k.as_str() {
+        // --- Модификаторы (Текстовые сокращения) ---
+        "left_command" | "lcmd" | "lcommand" => "lcmd".to_string(),
+        "right_command" | "rcmd" | "rcommand" => "rcmd".to_string(),
+        "command" | "cmd" => "cmd".to_string(),
+        
+        "left_option" | "lalt" | "lopt" | "loption" => "lopt".to_string(),
+        "right_option" | "ralt" | "ropt" | "roption" => "ropt".to_string(),
+        "option" | "alt" | "opt" => "opt".to_string(),
+        
+        "left_control" | "lctrl" | "lcontrol" => "lctrl".to_string(),
+        "right_control" | "rctrl" | "rcontrol" => "rctrl".to_string(),
+        "control" | "ctrl" => "ctrl".to_string(),
+        
+        "left_shift" | "lshift" => "lshift".to_string(),
+        "right_shift" | "rshift" => "rshift".to_string(),
+        "shift" => "shift".to_string(),
+        
+        "hyper" => "hyper".to_string(),
+
+        // --- Спецклавиши ---
+        "vk_none" => "-".to_string(),
+        "return" | "enter" => "return".to_string(),
+        "space" | "spacebar" => "space".to_string(),
+        "escape" => "esc".to_string(),
+        "tab" => "tab".to_string(),
+        "caps_lock" => "caps".to_string(),
+        "delete_or_backspace" => "backspace".to_string(),
+        "delete_forward" => "del".to_string(),
+
+        // --- Навигация ---
+        "left_arrow" => "left".to_string(),
+        "right_arrow" => "right".to_string(),
+        "up_arrow" => "up".to_string(),
+        "down_arrow" => "down".to_string(),
+        "page_up" => "pgup".to_string(),
+        "page_down" => "pgdn".to_string(),
+        "home" => "home".to_string(),
+        "end" => "end".to_string(),
+
+        // --- Знаки препинания ---
+        "grave_accent_and_tilde" | "0x32" => "ˋ".to_string(),
+        "hyphen" | "0x1b" => "-".to_string(),
+        "equal_sign" | "0x18" => "=".to_string(),
+        "open_bracket" | "0x21" => "[".to_string(),
+        "close_bracket" | "0x1e" => "]".to_string(),
+        "backslash" | "0x2a" => "\\".to_string(),
+        "semicolon" | "0x29" => ";".to_string(),
+        "quote" | "0x27" => "'".to_string(),
+        "comma" | "0x2b" => ",".to_string(),
+        "period" | "0x2f" => ".".to_string(),
+        "slash" | "0x2c" => "/".to_string(),
+
+        // --- Медиа и F-клавиши ---
+        "play_or_pause" => "play/pause".to_string(),
+        "mute" => "mute".to_string(),
+        "volume_decrement" => "vol_down".to_string(),
+        "volume_increment" => "vol_up".to_string(),
+        "display_brightness_decrement" => "br_down".to_string(),
+        "display_brightness_increment" => "br_up".to_string(),
+        
+        other => {
+            if other.starts_with('f') && other[1..].parse::<u8>().is_ok() {
+                other.to_uppercase()
+            } else {
+                other.to_string()
+            }
+        }
+    }
+}
+
+fn process_modifiers(mods: &[String]) -> String {
+    if mods.is_empty() {
+        return String::new();
+    }
+
+    let mut bases = HashSet::new();
+    for m in mods {
+        if m.contains("cmd") { bases.insert("cmd"); }
+        else if m.contains("opt") { bases.insert("opt"); }
+        else if m.contains("ctrl") { bases.insert("ctrl"); }
+        else if m.contains("shift") { bases.insert("shift"); }
+        else if m == "hyper" {
+            bases.insert("cmd"); bases.insert("opt"); bases.insert("ctrl"); bases.insert("shift");
+        }
+    }
+
+    if bases.len() == 4 && bases.contains("cmd") && bases.contains("opt") && bases.contains("ctrl") && bases.contains("shift") {
+        return "hyper".to_string();
+    }
+
+    let mut sorted_mods = mods.to_vec();
+    sorted_mods.sort_by_key(|m| {
+        if m.contains("cmd") { 1 }
+        else if m.contains("opt") { 2 }
+        else if m.contains("ctrl") { 3 }
+        else if m.contains("shift") { 4 }
+        else { 5 }
+    });
+
+    sorted_mods.join(" + ")
+}
+
+fn load_system_shortcuts(shortcuts: &mut HashMap<String, ShortcutData>) -> Result<(), Box<dyn std::error::Error>> {
+    let path = Path::new("src/system_shortcuts.json");
+    if !path.exists() {
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(path)?;
+    let system_list: Vec<SystemShortcut> = serde_json::from_str(&content)?;
+
+    for s in system_list {
+        let formatted_mods: Vec<String> = s.mods.into_iter().map(|m| format_key(&m)).collect();
+        let trigger_mods = process_modifiers(&formatted_mods);
+        let key_fmt = format_key(&s.key);
+        let trigger = if trigger_mods.is_empty() { key_fmt } else { format!("{} + {}", trigger_mods, key_fmt) };
+        add_to_dict(shortcuts, "sy", &trigger, "-", &s.desc);
+    }
+    Ok(())
+}
+
+fn format_description(desc: &str) -> String {
+    if desc == "-" || desc.is_empty() {
+        return desc.to_string();
+    }
+
+    static RE_CATEGORY: OnceLock<Regex> = OnceLock::new();
+    static RE_DISABLED_PAREN: OnceLock<Regex> = OnceLock::new();
+    static RE_DISABLED_RAW: OnceLock<Regex> = OnceLock::new();
+
+    let re1 = RE_CATEGORY.get_or_init(|| Regex::new(r"^([a-zA-Zа-яА-Я0-9\s_-]+)\s*:").expect("Invalid RE1"));
+    let desc = re1.replace(desc, "$1: ").to_string();
+
+    let re2 = RE_DISABLED_PAREN.get_or_init(|| Regex::new(r"(?i)\(\s*disabled in:\s*([^)]+)\)").expect("Invalid RE2"));
+    let desc = re2.replace_all(&desc, " | Disabled in: $1").to_string();
+
+    let re3 = RE_DISABLED_RAW.get_or_init(|| Regex::new(r"(?i)(?P<prefix>\*\*)?disabled in:").expect("Invalid RE3"));
+    let desc = re3.replace_all(&desc, |caps: &regex::Captures| {
+        if caps.name("prefix").is_some() {
+            "**disabled in:".to_string()
+        } else {
+            " | Disabled in: ".to_string()
+        }
+    }).to_string();
+
+    desc.trim().to_string()
+}
+
+fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData>) -> Result<(), Box<dyn std::error::Error>> {
+    if !Path::new(path).exists() {
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(path)?;
+    let v: serde_json::Value = serde_json::from_str(&content)?;
+
+    if let Some(profiles) = v.get("profiles").and_then(|p| p.as_array()) {
+        for profile in profiles {
+            if let Some(rules) = profile.get("complex_modifications").and_then(|cm| cm.get("rules")).and_then(|r| r.as_array()) {
+                for rule in rules {
+                    let raw_desc = rule.get("description").and_then(|d| d.as_str()).unwrap_or("-");
+                    let description = format_description(raw_desc);
+
+                    if let Some(manipulators) = rule.get("manipulators").and_then(|m| m.as_array()) {
+                        for manip in manipulators {
+                            if manip.get("type").and_then(|t| t.as_str()) != Some("basic") {
+                                continue;
+                            }
+
+                            let from = manip.get("from").cloned().unwrap_or(serde_json::Value::Object(Default::default()));
+                            let key_code = from.get("key_code")
+                                .or_else(|| from.get("consumer_key_code"))
+                                .or_else(|| from.get("pointing_button"))
+                                .or_else(|| from.get("any"))
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            
+                            let key = format_key(key_code);
+                            
+                            let mandatory_mods = from.get("modifiers").and_then(|m| m.get("mandatory"));
+                            let mods = if let Some(m_array) = mandatory_mods.and_then(|m| m.as_array()) {
+                                let m_list: Vec<String> = m_array.iter().filter_map(|m| m.as_str()).map(format_key).collect();
+                                process_modifiers(&m_list)
+                            } else {
+                                String::new()
+                            };
+
+                            let trigger = if !mods.is_empty() && !key.is_empty() {
+                                format!("{} + {}", mods, key)
+                            } else if !key.is_empty() {
+                                key
+                            } else if !mods.is_empty() {
+                                mods
+                            } else {
+                                "-".to_string()
+                            };
+
+                            if trigger == "-" && manip.get("to").is_none() {
+                                continue;
+                            }
+
+                            // Определение приложения (enable/disable)
+                            let mut tags = Vec::new();
+                            if let Some(conditions) = manip.get("conditions").and_then(|c| c.as_array()) {
+                                for cond in conditions {
+                                    let ctype = cond.get("type").and_then(|t| t.as_str());
+                                    let is_enable = ctype == Some("frontmost_application_if");
+                                    let is_disable = ctype == Some("frontmost_application_unless");
+                                    
+                                    if is_enable || is_disable {
+                                        if let Some(bundles) = cond.get("bundle_identifiers").and_then(|b| b.as_array()) {
+                                            for b in bundles {
+                                                if let Some(b_str) = b.as_str() {
+                                                    let app_slug = get_app_slug(b_str);
+                                                    let suffix = if is_enable { "_e" } else { "_d" };
+                                                    tags.push(format!("{}{}", app_slug, suffix));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            let source_tag = if tags.is_empty() { "ke".to_string() } else { tags.join(" ") };
+
+                            let mut actions = Vec::new();
+                            if let Some(to_array) = manip.get("to").and_then(|t| t.as_array()) {
+                                for t in to_array {
+                                    if let Some(t_key_code) = t.get("key_code").or_else(|| t.get("consumer_key_code")).and_then(|v| v.as_str()) {
+                                        let t_key = format_key(t_key_code);
+                                        if let Some(to_mods_array) = t.get("modifiers").and_then(|m| m.as_array()) {
+                                            let t_mods_list: Vec<String> = to_mods_array.iter().filter_map(|m| m.as_str()).map(format_key).collect();
+                                            actions.push(format!("{} + {}", process_modifiers(&t_mods_list), t_key));
+                                        } else {
+                                            actions.push(t_key);
+                                        }
+                                    } else if let Some(shell) = t.get("shell_command").and_then(|s| s.as_str()) {
+                                        actions.push(shell.to_string());
+                                    } else if let Some(var) = t.get("set_variable").and_then(|v| v.get("name")).and_then(|n| n.as_str()) {
+                                        actions.push(format!("var: {}", var));
+                                    }
+                                }
+                            }
+
+                            let action_str = if actions.is_empty() { "-".to_string() } else { actions.join(" ") };
+                            add_to_dict(shortcuts, &source_tag, &trigger, &action_str, &description);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn get_app_slug(bundle_id: &str) -> String {
+    let parts: Vec<&str> = bundle_id.split('.').collect();
+    let name = parts.last().unwrap_or(&bundle_id).to_lowercase();
+    name.chars().filter(|c| c.is_alphanumeric()).collect()
+}
+
+fn parse_skhd_trigger(trigger_raw: &str) -> String {
+    let parts: Vec<&str> = trigger_raw.split(|c| c == '+' || c == '-').collect();
+    let formatted_parts: Vec<String> = parts.iter().map(|p| p.trim()).filter(|p| !p.is_empty()).map(format_key).collect();
+
+    if formatted_parts.len() > 1 {
+        let mods_list = &formatted_parts[..formatted_parts.len() - 1];
+        let key = &formatted_parts[formatted_parts.len() - 1];
+        let mods = process_modifiers(mods_list);
+        if mods.is_empty() { key.clone() } else { format!("{} + {}", mods, key) }
+    } else if !formatted_parts.is_empty() {
+        formatted_parts[0].clone()
+    } else {
+        "-".to_string()
+    }
+}
+
+fn parse_skhd_config(path: &str, shortcuts: &mut HashMap<String, ShortcutData>) -> Result<(), Box<dyn std::error::Error>> {
+    if !Path::new(path).exists() {
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(path)?;
+    let lines = content.lines();
+
+    let mut in_block = false;
+    let mut current_trigger = "-".to_string();
+    let mut block_actions = Vec::new();
+
+    let re_comment = Regex::new(r"--.+").unwrap();
+
+    for line in lines {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        if line.ends_with('[') {
+            in_block = true;
+            let mut trigger_raw = line[..line.len() - 1].trim();
+            if trigger_raw.ends_with(':') || trigger_raw.ends_with("->") {
+                 trigger_raw = if trigger_raw.ends_with(':') { &trigger_raw[..trigger_raw.len()-1] } else { &trigger_raw[..trigger_raw.len()-2] };
+            }
+            current_trigger = parse_skhd_trigger(trigger_raw.trim());
+            block_actions = Vec::new();
+            continue;
+        }
+
+        if in_block {
+            if line == "]" {
+                in_block = false;
+                if !block_actions.is_empty() {
+                    let description = block_actions.join(" | ");
+                    add_to_dict(shortcuts, "sk", &current_trigger, "-", &description);
+                }
+                continue;
+            }
+
+            if line.ends_with('~') {
+                let app_raw = line[..line.len() - 1].trim();
+                let app_name = if app_raw == "*" { "Остальные".to_string() } else { app_raw.trim_matches(|c| c == '"' || c == '\'').to_string() };
+                block_actions.push(format!("{}: pass-through (~)", app_name));
+                continue;
+            }
+
+            if line.contains(':') || line.contains("->") {
+                let separator = if line.contains(':') { ":" } else { "->" };
+                let parts: Vec<&str> = line.splitn(2, separator).collect();
+                let app_raw = parts[0].trim();
+                let action_raw = parts[1].trim();
+                
+                let action_desc = re_comment.find(action_raw).map(|m| m.as_str()).unwrap_or(action_raw);
+                let app_name = if app_raw == "*" { "Остальные".to_string() } else { app_raw.trim_matches(|c| c == '"' || c == '\'').to_string() };
+                block_actions.push(format!("{}: {}", app_name, action_desc));
+            }
+            continue;
+        }
+
+        if !line.contains(':') && !line.contains("->") {
+            continue;
+        }
+
+        let separator = if line.contains(':') { ":" } else { "->" };
+        let parts: Vec<&str> = line.splitn(2, separator).collect();
+        let trigger_raw = parts[0].trim();
+        let action_raw = parts[1].trim();
+
+        let trigger = parse_skhd_trigger(trigger_raw);
+        let description = re_comment.find(action_raw).map(|m| m.as_str()).unwrap_or(action_raw);
+
+        add_to_dict(shortcuts, "sk", &trigger, "-", description);
+    }
+
+    Ok(())
+}
+
+fn add_to_dict(shortcuts: &mut HashMap<String, ShortcutData>, source_tag: &str, trigger: &str, action: &str, description: &str) {
+    let data = shortcuts.entry(trigger.to_string()).or_insert_with(|| ShortcutData {
+        entries: Vec::new(),
+    });
+
+    data.entries.push(ShortcutEntry {
+        source_tag: source_tag.to_string(),
+        action: action.to_string(),
+        description: description.to_string(),
+    });
+}
+
+fn export_json(shortcuts: HashMap<String, ShortcutData>, output_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let mut output_data = Vec::new();
+
+    for (trigger, data) in shortcuts {
+        let mut sources = HashSet::new();
+        let mut combined_desc = Vec::new();
+        let mut combined_actions = Vec::new();
+
+        for entry in data.entries {
+            // Собираем все теги (включая скрытые _e/_d)
+            for tag in entry.source_tag.split_whitespace() {
+                sources.insert(tag.to_string());
+            }
+
+            let source_prefix = entry.source_tag.split_whitespace().next().unwrap_or("??");
+            
+            if entry.description != "-" && !entry.description.is_empty() {
+                combined_desc.push(format!("{}: {}", source_prefix, entry.description));
+            }
+            
+            if entry.action != "-" && !entry.action.is_empty() {
+                combined_actions.push(format!("{}: {}", source_prefix, entry.action));
+            }
+        }
+
+        let mut sources_vec: Vec<String> = sources.into_iter().collect();
+        sources_vec.sort();
+        let source_str = sources_vec.join(" ");
+
+        let action_str = if combined_actions.is_empty() { "-".to_string() } else { combined_actions.join("\n") };
+        let desc_str = if combined_desc.is_empty() { "-".to_string() } else { 
+            combined_desc.join("\n")
+                .replace("**", "")
+                .replace("<br>", " ")
+        };
+
+        let keys = if trigger != "-" {
+            trigger.split('+').map(|s| s.trim().to_string()).collect()
+        } else {
+            Vec::new()
+        };
+
+        output_data.push(RawShortcut {
+            source: source_str,
+            trigger,
+            keys,
+            action: action_str,
+            desc: desc_str,
+        });
+    }
+
+    let f = fs::File::create(output_path)?;
+    serde_json::to_writer_pretty(f, &output_data)?;
+    println!("Успешно! JSON сохранен по пути: {}", output_path);
+
+    Ok(())
+}
