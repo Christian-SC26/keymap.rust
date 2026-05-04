@@ -35,9 +35,9 @@ impl Filter {
     pub fn as_str(&self) -> &'static str {
         match self {
             Filter::All => "all",
-            Filter::Skhd => "sk",
-            Filter::Karabiner => "ke",
-            Filter::System => "sy",
+            Filter::Skhd => "skhd",
+            Filter::Karabiner => "karabiner",
+            Filter::System => "system",
         }
     }
 }
@@ -295,7 +295,7 @@ impl App {
                 if self.filter == Filter::Karabiner && !app_q.is_empty() {
                     let enable_tag = format!("{}_e", app_q);
                     let disable_tag = format!("{}_d", app_q);
-                    if !i.source.contains(&enable_tag) && !i.source.contains(&disable_tag) {
+                    if !i.rules.contains(&enable_tag) && !i.rules.contains(&disable_tag) {
                         return false;
                     }
                 }
