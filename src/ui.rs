@@ -130,7 +130,13 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     let filtered = app.filtered_items();
     let selected_idx = app.state.selected().unwrap_or(0);
     
-    let (active_keys, active_source) = if app.bulk_highlight {
+    let (active_keys, active_source) = if app.is_filtering_modifier {
+        let mut all_keys: Vec<String> = filtered.iter().flat_map(|i| i.keys.iter().map(|k| k.to_lowercase())).collect();
+        for m in &app.active_modifiers {
+            all_keys.push(m.clone());
+        }
+        (all_keys, "mod_mode")
+    } else if app.bulk_highlight {
         let all_keys: Vec<String> = filtered.iter().flat_map(|i| i.keys.iter().map(|k| k.to_lowercase())).collect();
         (all_keys, app.filter.as_str())
     } else if app.is_filtering_key && app.key_filter.is_some() {

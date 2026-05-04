@@ -61,7 +61,9 @@ fn run_app(terminal: &mut DefaultTerminal, app: &mut App) -> io::Result<()> {
             } else if app.is_filtering_key {
                 handle_key_filter_input(app, key);
             } else if app.is_filtering_modifier {
-                handle_modifier_filter_input(app, key);
+                if handle_modifier_filter_input(app, key)? {
+                    return Ok(());
+                }
             } else {
                 if handle_navigation_input(app, key)? {
                     return Ok(());
@@ -89,7 +91,7 @@ fn translate_char(c: char) -> char {
     }
 }
 
-fn handle_modifier_filter_input(app: &mut App, key: event::KeyEvent) {
+fn handle_modifier_filter_input(app: &mut App, key: event::KeyEvent) -> io::Result<bool> {
     let code = match key.code {
         KeyCode::Char(c) => KeyCode::Char(translate_char(c)),
         _ => key.code,
@@ -99,13 +101,15 @@ fn handle_modifier_filter_input(app: &mut App, key: event::KeyEvent) {
         KeyCode::Esc | KeyCode::Enter | KeyCode::Char('m') => {
             app.is_filtering_modifier = false;
             app.active_modifiers.clear();
+            app.bulk_highlight = false;
+            Ok(false)
         }
-        KeyCode::Char(c) => {
-            let mod_str = match c {
-                'c' => Some("cmd"),
-                'o' => Some("opt"),
-                's' => Some("shift"),
-                't' => Some("ctrl"),
+        KeyCode::Char('c') | KeyCode::Char('o') | KeyCode::Char('s') | KeyCode::Char('t') => {
+            let mod_str = match code {
+                KeyCode::Char('c') => Some("cmd"),
+                KeyCode::Char('o') => Some("opt"),
+                KeyCode::Char('s') => Some("shift"),
+                KeyCode::Char('t') => Some("ctrl"),
                 _ => None,
             };
             if let Some(m) = mod_str {
@@ -116,9 +120,11 @@ fn handle_modifier_filter_input(app: &mut App, key: event::KeyEvent) {
                     app.active_modifiers.insert(m_string);
                 }
                 app.state.select(Some(0));
+                app.bulk_highlight = true;
             }
+            Ok(false)
         }
-        _ => {}
+        _ => handle_navigation_input(app, key),
     }
 }
 
