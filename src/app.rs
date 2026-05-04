@@ -1,6 +1,7 @@
 use ratatui::widgets::TableState;
 use serde::Deserialize;
 use std::{fs, io};
+use std::collections::HashSet;
 
 #[derive(Deserialize, Clone)]
 pub struct Shortcut {
@@ -51,6 +52,8 @@ pub struct App {
     pub is_searching: bool,
     pub is_filtering_app: bool,
     pub is_filtering_key: bool,
+    pub is_filtering_modifier: bool,
+    pub active_modifiers: HashSet<String>,
     pub show_help: bool,
     pub show_overview: bool,
     pub config_path: Option<String>,
@@ -81,7 +84,6 @@ impl App {
             desc: String,
         }
 
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
         let sys_paths = [
             "system_shortcuts.json".to_string(),
             "src/system_shortcuts.json".to_string(),
@@ -143,6 +145,8 @@ impl App {
             is_searching: false,
             is_filtering_app: false,
             is_filtering_key: false,
+            is_filtering_modifier: false,
+            active_modifiers: std::collections::HashSet::new(),
             show_help: false,
             show_overview: false,
             config_path: Some(path),
@@ -306,6 +310,30 @@ impl App {
                     }
                 }
 
+                // Modifier Filter (M mode)
+                if self.is_filtering_modifier {
+                    let mut shortcut_mods = std::collections::HashSet::new();
+                    for k in &i.keys {
+                        let k_lower = k.to_lowercase();
+                        if k_lower.contains("cmd") || k_lower.contains("command") || k_lower == "hyper" {
+                            shortcut_mods.insert("cmd".to_string());
+                        }
+                        if k_lower.contains("opt") || k_lower.contains("alt") || k_lower.contains("option") || k_lower == "hyper" {
+                            shortcut_mods.insert("opt".to_string());
+                        }
+                        if k_lower.contains("ctrl") || k_lower.contains("control") || k_lower == "hyper" {
+                            shortcut_mods.insert("ctrl".to_string());
+                        }
+                        if k_lower.contains("shift") || k_lower == "hyper" {
+                            shortcut_mods.insert("shift".to_string());
+                        }
+                    }
+                    
+                    if shortcut_mods != self.active_modifiers {
+                        return false;
+                    }
+                }
+
                 // Text search filter
                 if query.is_empty() {
                     return true;
@@ -344,6 +372,8 @@ mod tests {
             is_searching: false,
             is_filtering_app: false,
             is_filtering_key: false,
+            is_filtering_modifier: false,
+            active_modifiers: std::collections::HashSet::new(),
             show_help: false,
             show_overview: false,
             config_path: None,

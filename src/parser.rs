@@ -357,7 +357,7 @@ fn parse_skhd_config(path: &str, shortcuts: &mut HashMap<String, ShortcutData>) 
         let trigger = parse_skhd_trigger(trigger_raw);
         let description = re_comment.find(action_raw).map(|m| m.as_str()).unwrap_or(action_raw);
 
-        add_to_dict(shortcuts, "skhd", "", &trigger, "-", description);
+        add_to_dict(shortcuts, "skhd sk", "", &trigger, "-", description);
     }
 
     Ok(())

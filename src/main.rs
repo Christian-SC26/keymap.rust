@@ -60,6 +60,8 @@ fn run_app(terminal: &mut DefaultTerminal, app: &mut App) -> io::Result<()> {
                 handle_app_filter_input(app, key);
             } else if app.is_filtering_key {
                 handle_key_filter_input(app, key);
+            } else if app.is_filtering_modifier {
+                handle_modifier_filter_input(app, key);
             } else {
                 if handle_navigation_input(app, key)? {
                     return Ok(());
@@ -84,6 +86,39 @@ fn translate_char(c: char) -> char {
         translated.to_uppercase().next().unwrap_or(translated)
     } else {
         translated
+    }
+}
+
+fn handle_modifier_filter_input(app: &mut App, key: event::KeyEvent) {
+    let code = match key.code {
+        KeyCode::Char(c) => KeyCode::Char(translate_char(c)),
+        _ => key.code,
+    };
+
+    match code {
+        KeyCode::Esc | KeyCode::Enter | KeyCode::Char('m') => {
+            app.is_filtering_modifier = false;
+            app.active_modifiers.clear();
+        }
+        KeyCode::Char(c) => {
+            let mod_str = match c {
+                'c' => Some("cmd"),
+                'o' => Some("opt"),
+                's' => Some("shift"),
+                't' => Some("ctrl"),
+                _ => None,
+            };
+            if let Some(m) = mod_str {
+                let m_string = m.to_string();
+                if app.active_modifiers.contains(&m_string) {
+                    app.active_modifiers.remove(&m_string);
+                } else {
+                    app.active_modifiers.insert(m_string);
+                }
+                app.state.select(Some(0));
+            }
+        }
+        _ => {}
     }
 }
 
@@ -168,6 +203,12 @@ fn handle_navigation_input(app: &mut App, key: event::KeyEvent) -> io::Result<bo
         KeyCode::Char(' ') => {
             app.is_filtering_key = true;
             app.key_filter = None; // Ожидаем нажатия буквы
+        }
+
+        KeyCode::Char('m') => {
+            app.is_filtering_modifier = true;
+            app.active_modifiers.clear();
+            app.state.select(Some(0));
         }
 
         KeyCode::Esc if !app.search_query.is_empty() => {

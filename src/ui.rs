@@ -170,7 +170,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             }
 
             let display_source = item.source.split_whitespace()
-                .filter(|tag| *tag == "ke" || *tag == "sk" || *tag == "sy")
+                .filter(|tag| *tag == "karabiner" || *tag == "skhd" || *tag == "system")
                 .collect::<Vec<_>>();
             let mut unique_sources = display_source.clone(); 
             unique_sources.sort(); 
@@ -204,6 +204,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
         Span::styled("[r]", Style::default().fg(Color::Cyan)), Span::raw("eload  "),
         Span::styled("[/]", Style::default().fg(Color::Cyan)), Span::raw("search  "),
         Span::styled("[space]", Style::default().fg(Color::Cyan)), Span::raw(" key-mode  "),
+        Span::styled("[m]", Style::default().fg(Color::Cyan)), Span::raw(" mod-mode  "),
         Span::styled("[o]", Style::default().fg(Color::Cyan)), Span::raw(" overview  "),
         Span::styled("[j/k u/d]", Style::default().fg(Color::Cyan)), Span::raw(" nav  |  Filters: "),
         Span::styled("[1]", Style::default().fg(Color::Cyan)), Span::raw(" All  "),
@@ -217,6 +218,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     let search_style = if app.is_searching { Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) };
     let app_filter_style = if app.is_filtering_app { Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) };
     let key_mode_style = if app.is_filtering_key { Style::default().fg(Color::Green).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) };
+    let mod_mode_style = if app.is_filtering_modifier { Style::default().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) };
 
     let mut info_line = vec![Span::styled(format!(" Search: {}", app.search_query), search_style)];
     if app.filter == Filter::Karabiner {
@@ -225,6 +227,12 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     }
     info_line.push(Span::raw("  |  "));
     info_line.push(Span::styled(format!(" Key Mode (Space): {}", app.key_filter.unwrap_or(' ')), key_mode_style));
+    
+    let mut mods_list: Vec<String> = app.active_modifiers.iter().cloned().collect();
+    mods_list.sort();
+    let mods_display = if mods_list.is_empty() { "None (c:cmd, o:opt, t:ctrl, s:shift)".to_string() } else { mods_list.join("+") };
+    info_line.push(Span::raw("  |  "));
+    info_line.push(Span::styled(format!(" Mod Mode (m): {}", mods_display), mod_mode_style));
 
     f.render_widget(Paragraph::new(Line::from(info_line)), rects[4]);
 
@@ -279,7 +287,7 @@ fn render_overview(f: &mut Frame, app: &mut App) {
     let mut sources = HashSet::new();
     for item in &app.items {
         for tag in item.source.split_whitespace() {
-            if tag == "ke" || tag == "sk" || tag == "sy" { sources.insert(tag.to_string()); }
+            if tag == "karabiner" || tag == "skhd" || tag == "system" { sources.insert(tag.to_string()); }
         }
     }
     let mut sources_list: Vec<_> = sources.into_iter().collect();
@@ -305,11 +313,12 @@ fn render_overview(f: &mut Frame, app: &mut App) {
 
 fn draw_keyboard(f: &mut Frame, area: Rect, active_keys: &[String], free_keys: &[String], source: &str, app: &App) {
     let active_color = match source.to_lowercase().as_str() {
-        s if s.contains("sk") => Color::Magenta,
-        s if s.contains("ke") => Color::Cyan,
+        s if s.contains("skhd") || s.contains("sk") => Color::Magenta,
+        s if s.contains("karabiner") || s.contains("ke") => Color::Cyan,
         s if s.contains("xc") => Color::Green,
-        s if s.contains("sy") => Color::Yellow,
+        s if s.contains("system") || s.contains("sy") => Color::Yellow,
         "key_mode" => Color::LightBlue,
+        "mod_mode" => Color::Red,
         _ => Color::White,
     };
     let free_color = Color::Rgb(0, 255, 127);
