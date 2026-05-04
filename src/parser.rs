@@ -3,26 +3,20 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use regex::Regex;
-use std::sync::OnceLock;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RawShortcut {
     pub source: String,
-    pub trigger: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub rules: String,
     pub keys: Vec<String>,
     pub action: String,
     pub desc: String,
 }
 
-#[derive(Deserialize)]
-struct SystemShortcut {
-    mods: Vec<String>,
-    key: String,
-    desc: String,
-}
-
 struct ShortcutEntry {
-    source_tag: String,
+    source: String,
+    rules: String,
     action: String,
     description: String,
 }
@@ -34,8 +28,6 @@ struct ShortcutData {
 pub fn run_parser(output_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut all_shortcuts: HashMap<String, ShortcutData> = HashMap::new();
 
-    load_system_shortcuts(&mut all_shortcuts)?;
-    
     let home = std::env::var("HOME")?;
     
     let karabiner_path = format!("{}/.config/karabiner/karabiner.json", home);
@@ -59,7 +51,6 @@ fn format_key(key_str: &str) -> String {
 
     let k = key_str.to_lowercase();
     match k.as_str() {
-        // --- Модификаторы (Текстовые сокращения) ---
         "left_command" | "lcmd" | "lcommand" => "lcmd".to_string(),
         "right_command" | "rcmd" | "rcommand" => "rcmd".to_string(),
         "command" | "cmd" => "cmd".to_string(),
@@ -78,7 +69,6 @@ fn format_key(key_str: &str) -> String {
         
         "hyper" => "hyper".to_string(),
 
-        // --- Спецклавиши ---
         "vk_none" => "-".to_string(),
         "return" | "enter" => "return".to_string(),
         "space" | "spacebar" => "space".to_string(),
@@ -88,7 +78,6 @@ fn format_key(key_str: &str) -> String {
         "delete_or_backspace" => "backspace".to_string(),
         "delete_forward" => "del".to_string(),
 
-        // --- Навигация ---
         "left_arrow" => "left".to_string(),
         "right_arrow" => "right".to_string(),
         "up_arrow" => "up".to_string(),
@@ -98,7 +87,6 @@ fn format_key(key_str: &str) -> String {
         "home" => "home".to_string(),
         "end" => "end".to_string(),
 
-        // --- Знаки препинания ---
         "grave_accent_and_tilde" | "0x32" => "ˋ".to_string(),
         "hyphen" | "0x1b" => "-".to_string(),
         "equal_sign" | "0x18" => "=".to_string(),
@@ -111,7 +99,6 @@ fn format_key(key_str: &str) -> String {
         "period" | "0x2f" => ".".to_string(),
         "slash" | "0x2c" => "/".to_string(),
 
-        // --- Медиа и F-клавиши ---
         "play_or_pause" => "play/pause".to_string(),
         "mute" => "mute".to_string(),
         "volume_decrement" => "vol_down".to_string(),
@@ -161,52 +148,6 @@ fn process_modifiers(mods: &[String]) -> String {
     sorted_mods.join(" + ")
 }
 
-fn load_system_shortcuts(shortcuts: &mut HashMap<String, ShortcutData>) -> Result<(), Box<dyn std::error::Error>> {
-    let path = Path::new("src/system_shortcuts.json");
-    if !path.exists() {
-        return Ok(());
-    }
-
-    let content = fs::read_to_string(path)?;
-    let system_list: Vec<SystemShortcut> = serde_json::from_str(&content)?;
-
-    for s in system_list {
-        let formatted_mods: Vec<String> = s.mods.into_iter().map(|m| format_key(&m)).collect();
-        let trigger_mods = process_modifiers(&formatted_mods);
-        let key_fmt = format_key(&s.key);
-        let trigger = if trigger_mods.is_empty() { key_fmt } else { format!("{} + {}", trigger_mods, key_fmt) };
-        add_to_dict(shortcuts, "sy", &trigger, "-", &s.desc);
-    }
-    Ok(())
-}
-
-fn format_description(desc: &str) -> String {
-    if desc == "-" || desc.is_empty() {
-        return desc.to_string();
-    }
-
-    static RE_CATEGORY: OnceLock<Regex> = OnceLock::new();
-    static RE_DISABLED_PAREN: OnceLock<Regex> = OnceLock::new();
-    static RE_DISABLED_RAW: OnceLock<Regex> = OnceLock::new();
-
-    let re1 = RE_CATEGORY.get_or_init(|| Regex::new(r"^([a-zA-Zа-яА-Я0-9\s_-]+)\s*:").expect("Invalid RE1"));
-    let desc = re1.replace(desc, "$1: ").to_string();
-
-    let re2 = RE_DISABLED_PAREN.get_or_init(|| Regex::new(r"(?i)\(\s*disabled in:\s*([^)]+)\)").expect("Invalid RE2"));
-    let desc = re2.replace_all(&desc, " | Disabled in: $1").to_string();
-
-    let re3 = RE_DISABLED_RAW.get_or_init(|| Regex::new(r"(?i)(?P<prefix>\*\*)?disabled in:").expect("Invalid RE3"));
-    let desc = re3.replace_all(&desc, |caps: &regex::Captures| {
-        if caps.name("prefix").is_some() {
-            "**disabled in:".to_string()
-        } else {
-            " | Disabled in: ".to_string()
-        }
-    }).to_string();
-
-    desc.trim().to_string()
-}
-
 fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData>) -> Result<(), Box<dyn std::error::Error>> {
     if !Path::new(path).exists() {
         return Ok(());
@@ -219,8 +160,7 @@ fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData
         for profile in profiles {
             if let Some(rules) = profile.get("complex_modifications").and_then(|cm| cm.get("rules")).and_then(|r| r.as_array()) {
                 for rule in rules {
-                    let raw_desc = rule.get("description").and_then(|d| d.as_str()).unwrap_or("-");
-                    let description = format_description(raw_desc);
+                    let description = rule.get("description").and_then(|d| d.as_str()).unwrap_or("-").to_string();
 
                     if let Some(manipulators) = rule.get("manipulators").and_then(|m| m.as_array()) {
                         for manip in manipulators {
@@ -268,21 +208,19 @@ fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData
                                     let is_enable = ctype == Some("frontmost_application_if");
                                     let is_disable = ctype == Some("frontmost_application_unless");
                                     
-                                    if is_enable || is_disable {
-                                        if let Some(bundles) = cond.get("bundle_identifiers").and_then(|b| b.as_array()) {
-                                            for b in bundles {
-                                                if let Some(b_str) = b.as_str() {
-                                                    let app_slug = get_app_slug(b_str);
-                                                    let suffix = if is_enable { "_e" } else { "_d" };
-                                                    tags.push(format!("{}{}", app_slug, suffix));
-                                                }
+                                    if let Some(bundles) = cond.get("bundle_identifiers").and_then(|b| b.as_array()).filter(|_| is_enable || is_disable) {
+                                        for b in bundles {
+                                            if let Some(b_str) = b.as_str() {
+                                                let app_slug = get_app_slug(b_str);
+                                                let suffix = if is_enable { "_e" } else { "_d" };
+                                                tags.push(format!("{}{}", app_slug, suffix));
                                             }
                                         }
                                     }
                                 }
                             }
                             
-                            let source_tag = if tags.is_empty() { "ke".to_string() } else { tags.join(" ") };
+                            let rules_str = tags.join(" ");
 
                             let mut actions = Vec::new();
                             if let Some(to_array) = manip.get("to").and_then(|t| t.as_array()) {
@@ -291,20 +229,21 @@ fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData
                                         let t_key = format_key(t_key_code);
                                         if let Some(to_mods_array) = t.get("modifiers").and_then(|m| m.as_array()) {
                                             let t_mods_list: Vec<String> = to_mods_array.iter().filter_map(|m| m.as_str()).map(format_key).collect();
-                                            actions.push(format!("{} + {}", process_modifiers(&t_mods_list), t_key));
+                                            let t_mods = process_modifiers(&t_mods_list);
+                                            if t_mods.is_empty() {
+                                                actions.push(t_key);
+                                            } else {
+                                                actions.push(format!("{} + {}", t_mods, t_key));
+                                            }
                                         } else {
                                             actions.push(t_key);
                                         }
-                                    } else if let Some(shell) = t.get("shell_command").and_then(|s| s.as_str()) {
-                                        actions.push(shell.to_string());
-                                    } else if let Some(var) = t.get("set_variable").and_then(|v| v.get("name")).and_then(|n| n.as_str()) {
-                                        actions.push(format!("var: {}", var));
                                     }
                                 }
                             }
 
                             let action_str = if actions.is_empty() { "-".to_string() } else { actions.join(" ") };
-                            add_to_dict(shortcuts, &source_tag, &trigger, &action_str, &description);
+                            add_to_dict(shortcuts, "karabiner", &rules_str, &trigger, &action_str, &description);
                         }
                     }
                 }
@@ -318,11 +257,17 @@ fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData
 fn get_app_slug(bundle_id: &str) -> String {
     let parts: Vec<&str> = bundle_id.split('.').collect();
     let name = parts.last().unwrap_or(&bundle_id).to_lowercase();
-    name.chars().filter(|c| c.is_alphanumeric()).collect()
+    match name.as_str() {
+        "xcode" => "xc".to_string(),
+        "ghostty" => "gh".to_string(),
+        "safari" => "sf".to_string(),
+        "chrome" | "googlechrome" => "ch".to_string(),
+        _ => name.chars().filter(|c| c.is_alphanumeric()).take(2).collect(),
+    }
 }
 
 fn parse_skhd_trigger(trigger_raw: &str) -> String {
-    let parts: Vec<&str> = trigger_raw.split(|c| c == '+' || c == '-').collect();
+    let parts: Vec<&str> = trigger_raw.split(['+', '-']).collect();
     let formatted_parts: Vec<String> = parts.iter().map(|p| p.trim()).filter(|p| !p.is_empty()).map(format_key).collect();
 
     if formatted_parts.len() > 1 {
@@ -357,11 +302,13 @@ fn parse_skhd_config(path: &str, shortcuts: &mut HashMap<String, ShortcutData>) 
             continue;
         }
 
-        if line.ends_with('[') {
+        if let Some(stripped) = line.strip_suffix('[') {
             in_block = true;
-            let mut trigger_raw = line[..line.len() - 1].trim();
-            if trigger_raw.ends_with(':') || trigger_raw.ends_with("->") {
-                 trigger_raw = if trigger_raw.ends_with(':') { &trigger_raw[..trigger_raw.len()-1] } else { &trigger_raw[..trigger_raw.len()-2] };
+            let mut trigger_raw = stripped.trim();
+            if let Some(s) = trigger_raw.strip_suffix(':') {
+                trigger_raw = s;
+            } else if let Some(s) = trigger_raw.strip_suffix("->") {
+                trigger_raw = s;
             }
             current_trigger = parse_skhd_trigger(trigger_raw.trim());
             block_actions = Vec::new();
@@ -373,13 +320,13 @@ fn parse_skhd_config(path: &str, shortcuts: &mut HashMap<String, ShortcutData>) 
                 in_block = false;
                 if !block_actions.is_empty() {
                     let description = block_actions.join(" | ");
-                    add_to_dict(shortcuts, "sk", &current_trigger, "-", &description);
+                    add_to_dict(shortcuts, "skhd", "", &current_trigger, "-", &description);
                 }
                 continue;
             }
 
-            if line.ends_with('~') {
-                let app_raw = line[..line.len() - 1].trim();
+            if let Some(stripped) = line.strip_suffix('~') {
+                let app_raw = stripped.trim();
                 let app_name = if app_raw == "*" { "Остальные".to_string() } else { app_raw.trim_matches(|c| c == '"' || c == '\'').to_string() };
                 block_actions.push(format!("{}: pass-through (~)", app_name));
                 continue;
@@ -410,19 +357,20 @@ fn parse_skhd_config(path: &str, shortcuts: &mut HashMap<String, ShortcutData>) 
         let trigger = parse_skhd_trigger(trigger_raw);
         let description = re_comment.find(action_raw).map(|m| m.as_str()).unwrap_or(action_raw);
 
-        add_to_dict(shortcuts, "sk", &trigger, "-", description);
+        add_to_dict(shortcuts, "skhd", "", &trigger, "-", description);
     }
 
     Ok(())
 }
 
-fn add_to_dict(shortcuts: &mut HashMap<String, ShortcutData>, source_tag: &str, trigger: &str, action: &str, description: &str) {
+fn add_to_dict(shortcuts: &mut HashMap<String, ShortcutData>, source: &str, rules: &str, trigger: &str, action: &str, description: &str) {
     let data = shortcuts.entry(trigger.to_string()).or_insert_with(|| ShortcutData {
         entries: Vec::new(),
     });
 
     data.entries.push(ShortcutEntry {
-        source_tag: source_tag.to_string(),
+        source: source.to_string(),
+        rules: rules.to_string(),
         action: action.to_string(),
         description: description.to_string(),
     });
@@ -433,46 +381,51 @@ fn export_json(shortcuts: HashMap<String, ShortcutData>, output_path: &str) -> R
 
     for (trigger, data) in shortcuts {
         let mut sources = HashSet::new();
-        let mut combined_desc = Vec::new();
-        let mut combined_actions = Vec::new();
-
-        for entry in data.entries {
-            // Собираем все теги (включая скрытые _e/_d)
-            for tag in entry.source_tag.split_whitespace() {
-                sources.insert(tag.to_string());
-            }
-
-            let source_prefix = entry.source_tag.split_whitespace().next().unwrap_or("??");
-            
-            if entry.description != "-" && !entry.description.is_empty() {
-                combined_desc.push(format!("{}: {}", source_prefix, entry.description));
-            }
-            
-            if entry.action != "-" && !entry.action.is_empty() {
-                combined_actions.push(format!("{}: {}", source_prefix, entry.action));
+        let mut rules_set = HashSet::new();
+        
+        for entry in &data.entries {
+            sources.insert(entry.source.clone());
+            if !entry.rules.is_empty() {
+                rules_set.insert(entry.rules.clone());
             }
         }
 
         let mut sources_vec: Vec<String> = sources.into_iter().collect();
         sources_vec.sort();
-        let source_str = sources_vec.join(" ");
+        let source_str = sources_vec.join(" | ");
 
-        let action_str = if combined_actions.is_empty() { "-".to_string() } else { combined_actions.join("\n") };
-        let desc_str = if combined_desc.is_empty() { "-".to_string() } else { 
-            combined_desc.join("\n")
-                .replace("**", "")
-                .replace("<br>", " ")
-        };
+        let mut rules_vec: Vec<String> = rules_set.into_iter().collect();
+        rules_vec.sort();
+        let rules_str = rules_vec.join(" | ");
+
+        let mut clean_actions = Vec::new();
+        for entry in &data.entries {
+            if entry.action != "-" && !entry.action.is_empty() {
+                clean_actions.push(entry.action.clone());
+            }
+        }
+        let action_str = if clean_actions.is_empty() { "-".to_string() } else { clean_actions.join(" | ") };
+
+        let mut clean_descs = Vec::new();
+        for entry in &data.entries {
+            if entry.description != "-" && !entry.description.is_empty() {
+                clean_descs.push(entry.description.clone());
+            }
+        }
+        let desc_str = if clean_descs.is_empty() { "-".to_string() } else { clean_descs.join(" | ") };
 
         let keys = if trigger != "-" {
-            trigger.split('+').map(|s| s.trim().to_string()).collect()
+            trigger.split('+')
+                .map(|s| s.trim().to_string())
+                .filter(|k| k != "vk_none" && !k.is_empty())
+                .collect()
         } else {
             Vec::new()
         };
 
         output_data.push(RawShortcut {
             source: source_str,
-            trigger,
+            rules: rules_str,
             keys,
             action: action_str,
             desc: desc_str,
