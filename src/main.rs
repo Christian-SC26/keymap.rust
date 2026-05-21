@@ -184,7 +184,11 @@ fn handle_key_filter_input(app: &mut App, key: event::KeyEvent) {
 }
 
 fn handle_app_filter_input(app: &mut App, key: event::KeyEvent) {
-    match key.code {
+    let code = match key.code {
+        KeyCode::Char(c) => KeyCode::Char(translate_char(c)),
+        _ => key.code,
+    };
+    match code {
         KeyCode::Enter | KeyCode::Esc => {
             app.is_filtering_app = false;
         }
@@ -208,7 +212,11 @@ fn handle_app_filter_input(app: &mut App, key: event::KeyEvent) {
 }
 
 fn handle_search_input(app: &mut App, key: event::KeyEvent) {
-    match key.code {
+    let code = match key.code {
+        KeyCode::Char(c) => KeyCode::Char(translate_char(c)),
+        _ => key.code,
+    };
+    match code {
         KeyCode::Enter | KeyCode::Esc => {
             app.is_searching = false;
         }

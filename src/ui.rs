@@ -195,7 +195,20 @@ pub fn ui(f: &mut Frame, app: &mut App) {
         };
 
         if let Some(kbd_area) = keyboard_area {
-            draw_keyboard(f, kbd_area, &active_keys, &[], active_source, app);
+            if (app.filter == Filter::Karabiner || app.filter == Filter::Skhd) && area.width >= 125 {
+                let row_chunks = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([
+                        Constraint::Length(99),  // Keyboard layout width
+                        Constraint::Min(20),     // Programs list sidebar
+                    ])
+                    .split(kbd_area);
+
+                draw_keyboard(f, row_chunks[0], &active_keys, &[], active_source, app);
+                draw_programs_sidebar(f, row_chunks[1], app, selected_idx);
+            } else {
+                draw_keyboard(f, kbd_area, &active_keys, &[], active_source, app);
+            }
         }
 
         // Вычисление доступной ширины для колонок
@@ -313,7 +326,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     f.render_widget(Paragraph::new(Line::from(info_line)), info_area);
 
     if app.show_help {
-        let area = centered_rect(60, 75, f.area());
+        let area = centered_rect(75, 82, f.area());
         f.render_widget(Clear, area);
         let help_text = vec![
             Line::from(vec![Span::styled(" Keyboard Shortcuts ", Style::default().add_modifier(Modifier::BOLD))]),
@@ -341,6 +354,43 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             Line::from(vec![Span::styled(" Overview (o): ", Style::default().add_modifier(Modifier::BOLD))]),
             Line::from(vec![Span::raw("  Highlights keys used per source.")]),
             Line::from(vec![Span::raw("  "), Span::styled("Bright Green", Style::default().fg(Color::Rgb(0, 255, 127))), Span::raw(" keys are free in ALL sources.")]),
+            Line::from(""),
+            Line::from(vec![Span::styled(" Keyboard Lighting Legend ", Style::default().add_modifier(Modifier::BOLD))]),
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled("● ", Style::default().fg(Color::Magenta)), Span::raw("skhd active  |  "),
+                Span::styled("● ", Style::default().fg(Color::Cyan)), Span::raw("Karabiner active  |  "),
+                Span::styled("● ", Style::default().fg(Color::Yellow)), Span::raw("System active  |  "),
+                Span::styled("● ", Style::default().fg(Color::LightBlue)), Span::raw("Key-mode match"),
+            ]),
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled("● ", Style::default().fg(Color::Red)), Span::raw("Chord-mode active  |  "),
+                Span::styled("● ", Style::default().fg(Color::Rgb(255, 165, 0))), Span::raw("Special Escape [esc]  |  "),
+                Span::styled("● ", Style::default().fg(Color::Rgb(0, 255, 127))), Span::raw("Free key (unused)"),
+            ]),
+            Line::from(""),
+            Line::from(vec![Span::styled(" Program Rule Statuses (Sidebar) ", Style::default().add_modifier(Modifier::BOLD))]),
+            Line::from(vec![
+                Span::raw("  "), Span::styled("● [Active] (Green)", Style::default().fg(Color::Green)), 
+                Span::raw(" - Karabiner active/enabled shortcut rule"),
+            ]),
+            Line::from(vec![
+                Span::raw("  "), Span::styled("○ [Disabled] (Red/Dim)", Style::default().fg(Color::Red)), 
+                Span::raw(" - Karabiner disabled shortcut exception rule"),
+            ]),
+            Line::from(vec![
+                Span::raw("  "), Span::styled("●/○ [Active/Disabled] (Yellow)", Style::default().fg(Color::Yellow)), 
+                Span::raw(" - Karabiner mixed rule state (both enabled/disabled rules exist)"),
+            ]),
+            Line::from(vec![
+                Span::raw("  "), Span::styled("● AppName (Theme Color)", Style::default().fg(Color::Magenta)), 
+                Span::raw(" - skhd scoped rule application"),
+            ]),
+            Line::from(vec![
+                Span::styled("    AppName (White)", Style::default().fg(Color::White)), 
+                Span::raw(" - Program is in list, but selected shortcut is inactive for it"),
+            ]),
         ];
         let help_block = Block::default().title(" Help ").borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan));
         f.render_widget(Paragraph::new(help_text).block(help_block), area);
@@ -393,8 +443,113 @@ fn render_overview(f: &mut Frame, app: &mut App) {
             .flat_map(|item| item.keys.iter().map(|k| k.to_lowercase()))
             .collect();
             
-        draw_keyboard(f, chunks[i], &source_keys, &free_keys, source, app);
+        if area.width >= 135 {
+            let row_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Length(99),  // Keyboard layout width
+                    Constraint::Min(20),     // Stats and diagnostic info sidebar
+                ])
+                .split(chunks[i]);
+
+            draw_keyboard(f, row_chunks[0], &source_keys, &free_keys, source, app);
+            draw_diagnostics_sidebar(f, row_chunks[1], source, app);
+        } else {
+            draw_keyboard(f, chunks[i], &source_keys, &free_keys, source, app);
+        }
     }
+}
+
+fn draw_diagnostics_sidebar(f: &mut Frame, area: Rect, source: &str, app: &App) {
+    let analysis = app.analyze_source(source);
+    
+    // Choose dynamic color matching the source type
+    let theme_color = match source.to_lowercase().as_str() {
+        s if s.contains("skhd") => Color::Magenta,
+        s if s.contains("karabiner") => Color::Cyan,
+        s if s.contains("system") => Color::Yellow,
+        _ => Color::White,
+    };
+
+    let title = format!(" {} DIAGNOSTICS & STATS ", source.to_uppercase());
+    
+    let mut text = vec![];
+    
+    // 1. Config Path and Last Modified Time
+    text.push(Line::from(vec![
+        Span::styled("● Config File:  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(&analysis.config_path, Style::default().fg(Color::White)),
+    ]));
+    
+    text.push(Line::from(vec![
+        Span::styled("● Last Update:  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(&analysis.last_modified, Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+    ]));
+    
+    text.push(Line::from(""));
+
+    // 2. Metrics
+    text.push(Line::from(vec![
+        Span::styled("● Shortcuts:    ", Style::default().fg(Color::DarkGray)),
+        Span::styled(analysis.total_shortcuts.to_string(), Style::default().fg(theme_color).add_modifier(Modifier::BOLD)),
+    ]));
+    
+    text.push(Line::from(vec![
+        Span::styled("● Top Modifier: ", Style::default().fg(Color::DarkGray)),
+        Span::styled(&analysis.top_modifier, Style::default().fg(Color::White)),
+    ]));
+
+    text.push(Line::from(""));
+    text.push(Line::from(Span::styled("-".repeat((area.width as usize).saturating_sub(4)), Style::default().fg(Color::DarkGray))));
+    text.push(Line::from(""));
+
+    // 3. Conflict Detections
+    if analysis.conflicts.is_empty() {
+        text.push(Line::from(vec![
+            Span::styled("✅ No Cross-Source Conflicts Detected", Style::default().fg(Color::Rgb(0, 255, 127)).add_modifier(Modifier::BOLD)),
+        ]));
+    } else {
+        text.push(Line::from(vec![
+            Span::styled("⚠️ DETECTED KEYBIND CONFLICTS:", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        ]));
+        text.push(Line::from(""));
+        
+        // List up to 4 conflicts beautifully so they fit in the 18 height layout
+        let limit = analysis.conflicts.len().min(4);
+        for i in 0..limit {
+            let (sig, other_src, other_action) = &analysis.conflicts[i];
+            
+            // Clean action description (shorten if too long)
+            let action_short = if other_action.chars().count() > 25 {
+                format!("{}...", other_action.chars().take(22).collect::<String>())
+            } else {
+                other_action.clone()
+            };
+            
+            text.push(Line::from(vec![
+                Span::styled(format!("  • {}", sig), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(format!(" (also in {})", other_src.to_uppercase()), Style::default().fg(Color::DarkGray)),
+            ]));
+            text.push(Line::from(vec![
+                Span::styled(format!("    ↳ {}", action_short), Style::default().fg(Color::White)),
+            ]));
+        }
+        
+        if analysis.conflicts.len() > 4 {
+            text.push(Line::from(vec![
+                Span::styled(format!("  ...and {} more conflicts", analysis.conflicts.len() - 4), Style::default().fg(Color::DarkGray)),
+            ]));
+        }
+    }
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray))
+        .title(Span::styled(title, Style::default().fg(theme_color).add_modifier(Modifier::BOLD)));
+
+    // Fit content inside the block
+    let paragraph = Paragraph::new(text).block(block);
+    f.render_widget(paragraph, area);
 }
 
 fn draw_keyboard(f: &mut Frame, area: Rect, active_keys: &[String], free_keys: &[String], source: &str, app: &App) {
@@ -460,4 +615,179 @@ fn draw_keyboard(f: &mut Frame, area: Rect, active_keys: &[String], free_keys: &
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default().direction(Direction::Vertical).constraints([Constraint::Percentage((100 - percent_y) / 2), Constraint::Percentage(percent_y), Constraint::Percentage((100 - percent_y) / 2)]).split(r);
     Layout::default().direction(Direction::Horizontal).constraints([Constraint::Percentage((100 - percent_x) / 2), Constraint::Percentage(percent_x), Constraint::Percentage((100 - percent_x) / 2)]).split(popup_layout[1])[1]
+}
+
+fn get_app_name_for_slug(slug: &str, aliases: &std::collections::HashMap<String, String>) -> String {
+    for (k, v) in aliases {
+        if v.to_lowercase() == slug.to_lowercase() {
+            let mut chars = k.chars();
+            return match chars.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+            };
+        }
+    }
+    let mut chars = slug.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+    }
+}
+
+fn is_valid_app_name(name: &str) -> bool {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    // Must start with an alphabetic character
+    if let Some(first_char) = trimmed.chars().next() {
+        if !first_char.is_alphabetic() {
+            return false;
+        }
+    }
+    // Shouldn't contain shell commands
+    if trimmed.contains("--") || trimmed.contains("::") || trimmed.contains('$') {
+        return false;
+    }
+    true
+}
+
+fn draw_programs_sidebar(f: &mut Frame, area: Rect, app: &App, selected_idx: usize) {
+    let current_filter = app.filter;
+    let source_name = current_filter.as_str(); // "karabiner" or "skhd"
+    let theme_color = match current_filter {
+        Filter::Karabiner => Color::Cyan,
+        Filter::Skhd => Color::Magenta,
+        _ => Color::White,
+    };
+
+    // 1. Collect all unique programs for the current source
+    let mut all_apps = std::collections::HashSet::new();
+    for item in &app.items {
+        if item.source.contains(source_name) {
+            if current_filter == Filter::Karabiner {
+                for rule_tag in item.rules.split_whitespace() {
+                    if let Some(idx) = rule_tag.rfind('_') {
+                        let slug = &rule_tag[..idx];
+                        let app_name = get_app_name_for_slug(slug, &app.aliases);
+                        if !app_name.is_empty() {
+                            all_apps.insert(app_name);
+                        }
+                    }
+                }
+            } else {
+                // skhd
+                if item.desc.contains('|') {
+                    for part in item.desc.split('|') {
+                        if let Some(idx) = part.find(':') {
+                            let app_name = part[..idx].trim().to_string();
+                            if app_name != "*" && app_name != "Остальные" && is_valid_app_name(&app_name) {
+                                all_apps.insert(app_name);
+                            }
+                        }
+                    }
+                } else if let Some(idx) = item.desc.find(':') {
+                    let app_name = item.desc[..idx].trim().to_string();
+                    if app_name.len() < 30 && !app_name.contains('/') && is_valid_app_name(&app_name) && app_name != "*" && app_name != "Остальные" {
+                        all_apps.insert(app_name);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut sorted_apps: Vec<String> = all_apps.into_iter().collect();
+    sorted_apps.sort();
+
+    // 2. Identify status for the currently selected shortcut
+    let mut active_apps_status: std::collections::HashMap<String, std::collections::HashSet<String>> = std::collections::HashMap::new();
+    if let Some(selected_item) = app.filtered_items().get(selected_idx) {
+        if current_filter == Filter::Karabiner {
+            for rule_tag in selected_item.rules.split_whitespace() {
+                if let Some(idx) = rule_tag.rfind('_') {
+                    let slug = &rule_tag[..idx];
+                    let suffix = &rule_tag[idx+1..]; // "e" or "d"
+                    let app_name = get_app_name_for_slug(slug, &app.aliases);
+                    if !app_name.is_empty() {
+                        active_apps_status.entry(app_name)
+                            .or_insert_with(std::collections::HashSet::new)
+                            .insert(suffix.to_string());
+                    }
+                }
+            }
+        } else {
+            // skhd
+            if selected_item.desc.contains('|') {
+                for part in selected_item.desc.split('|') {
+                    if let Some(idx) = part.find(':') {
+                        let app_name = part[..idx].trim().to_string();
+                        if app_name != "*" && app_name != "Остальные" && is_valid_app_name(&app_name) {
+                            active_apps_status.entry(app_name)
+                                .or_insert_with(std::collections::HashSet::new)
+                                .insert("skhd_active".to_string());
+                        }
+                    }
+                }
+            } else if let Some(idx) = selected_item.desc.find(':') {
+                let app_name = selected_item.desc[..idx].trim().to_string();
+                if app_name.len() < 30 && !app_name.contains('/') && is_valid_app_name(&app_name) && app_name != "*" && app_name != "Остальные" {
+                    active_apps_status.entry(app_name)
+                        .or_insert_with(std::collections::HashSet::new)
+                        .insert("skhd_active".to_string());
+                }
+            }
+        }
+    }
+
+    // 3. Render list
+    let mut list_lines = vec![];
+    list_lines.push(Line::from("")); // Spacer
+
+    if sorted_apps.is_empty() {
+        list_lines.push(Line::from(vec![
+            Span::styled("  No specific app rules", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC))
+        ]));
+    } else {
+        for app_name in &sorted_apps {
+            let line = if let Some(statuses) = active_apps_status.get(app_name) {
+                if statuses.contains("e") && statuses.contains("d") {
+                    Line::from(vec![
+                        Span::styled("  ●/○ ", Style::default().fg(Color::Yellow)),
+                        Span::styled(format!("{} [Active/Disabled]", app_name), Style::default().fg(theme_color).add_modifier(Modifier::BOLD)),
+                    ])
+                } else if statuses.contains("e") {
+                    Line::from(vec![
+                        Span::styled("  ● ", Style::default().fg(Color::Green)),
+                        Span::styled(format!("{} [Active]", app_name), Style::default().fg(theme_color).add_modifier(Modifier::BOLD)),
+                    ])
+                } else if statuses.contains("d") {
+                    Line::from(vec![
+                        Span::styled("  ○ ", Style::default().fg(Color::Red)),
+                        Span::styled(format!("{} [Disabled]", app_name), Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)),
+                    ])
+                } else {
+                    // skhd_active
+                    Line::from(vec![
+                        Span::styled("  ● ", Style::default().fg(theme_color)),
+                        Span::styled(app_name, Style::default().fg(theme_color).add_modifier(Modifier::BOLD)),
+                    ])
+                }
+            } else {
+                Line::from(vec![
+                    Span::styled("    ", Style::default()),
+                    Span::styled(app_name, Style::default().fg(Color::White)),
+                ])
+            };
+            list_lines.push(line);
+        }
+    }
+
+    let title = format!(" {} Programs ", source_name.to_uppercase());
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(theme_color))
+        .title(Span::styled(title, Style::default().fg(theme_color).add_modifier(Modifier::BOLD)));
+
+    let paragraph = Paragraph::new(list_lines).block(block);
+    f.render_widget(paragraph, area);
 }
