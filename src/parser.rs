@@ -506,9 +506,17 @@ fn export_json(shortcuts: HashMap<String, ShortcutData>, output_path: &str) -> R
         });
     }
 
+    // Sort output stably to ensure consistent rendering and clean git diffs
+    output_data.sort_by(|a, b| {
+        a.source.cmp(&b.source)
+            .then_with(|| a.rules.cmp(&b.rules))
+            .then_with(|| a.keys.join("+").cmp(&b.keys.join("+")))
+            .then_with(|| a.desc.cmp(&b.desc))
+    });
+
     let f = fs::File::create(output_path)?;
     serde_json::to_writer_pretty(f, &output_data)?;
-    println!("Успешно! JSON сохранен по пути: {}", output_path);
+    println!("Success! JSON saved to: {}", output_path);
 
     Ok(())
 }

@@ -1,5 +1,5 @@
-use crate::app::App;
-use crate::app::Filter;
+use crate::app::{App, Filter, KeyDef};
+
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect, Margin},
     style::{Color, Modifier, Style},
@@ -117,16 +117,134 @@ fn is_key_matched(ak_lower: &str, key_id: &str, display: &str) -> bool {
     false
 }
 
-// --- Наша новая клавиатура удалена, загружается из JSON ---
+fn get_keyboard_layout(app: &App) -> Vec<Vec<KeyDef>> {
+    if app.selected_keyboard_idx == 1 {
+        // Return MBP Pro M3 Pro layout
+        vec![
+            vec![
+                KeyDef { display: "esc".to_string(), id: "esc".to_string(), width: 9 },
+                KeyDef { display: "F1".to_string(), id: "f1".to_string(), width: 6 },
+                KeyDef { display: "F2".to_string(), id: "f2".to_string(), width: 6 },
+                KeyDef { display: "F3".to_string(), id: "f3".to_string(), width: 6 },
+                KeyDef { display: "F4".to_string(), id: "f4".to_string(), width: 6 },
+                KeyDef { display: "F5".to_string(), id: "f5".to_string(), width: 6 },
+                KeyDef { display: "F6".to_string(), id: "f6".to_string(), width: 6 },
+                KeyDef { display: "F7".to_string(), id: "f7".to_string(), width: 6 },
+                KeyDef { display: "F8".to_string(), id: "f8".to_string(), width: 6 },
+                KeyDef { display: "F9".to_string(), id: "f9".to_string(), width: 6 },
+                KeyDef { display: "F10".to_string(), id: "f10".to_string(), width: 6 },
+                KeyDef { display: "F11".to_string(), id: "f11".to_string(), width: 6 },
+                KeyDef { display: "F12".to_string(), id: "f12".to_string(), width: 6 },
+                KeyDef { display: "power".to_string(), id: "power".to_string(), width: 15 },
+            ],
+            vec![
+                KeyDef { display: "~".to_string(), id: "grave_accent_and_tilde".to_string(), width: 6 },
+                KeyDef { display: "1".to_string(), id: "1".to_string(), width: 6 },
+                KeyDef { display: "2".to_string(), id: "2".to_string(), width: 6 },
+                KeyDef { display: "3".to_string(), id: "3".to_string(), width: 6 },
+                KeyDef { display: "4".to_string(), id: "4".to_string(), width: 6 },
+                KeyDef { display: "5".to_string(), id: "5".to_string(), width: 6 },
+                KeyDef { display: "6".to_string(), id: "6".to_string(), width: 6 },
+                KeyDef { display: "7".to_string(), id: "7".to_string(), width: 6 },
+                KeyDef { display: "8".to_string(), id: "8".to_string(), width: 6 },
+                KeyDef { display: "9".to_string(), id: "9".to_string(), width: 6 },
+                KeyDef { display: "0".to_string(), id: "0".to_string(), width: 6 },
+                KeyDef { display: "-".to_string(), id: "hyphen".to_string(), width: 6 },
+                KeyDef { display: "=".to_string(), id: "equal_sign".to_string(), width: 6 },
+                KeyDef { display: "back".to_string(), id: "backspace".to_string(), width: 18 },
+            ],
+            vec![
+                KeyDef { display: "tab".to_string(), id: "tab".to_string(), width: 12 },
+                KeyDef { display: "q".to_string(), id: "q".to_string(), width: 6 },
+                KeyDef { display: "w".to_string(), id: "w".to_string(), width: 6 },
+                KeyDef { display: "e".to_string(), id: "e".to_string(), width: 6 },
+                KeyDef { display: "r".to_string(), id: "r".to_string(), width: 6 },
+                KeyDef { display: "t".to_string(), id: "t".to_string(), width: 6 },
+                KeyDef { display: "y".to_string(), id: "y".to_string(), width: 6 },
+                KeyDef { display: "u".to_string(), id: "u".to_string(), width: 6 },
+                KeyDef { display: "i".to_string(), id: "i".to_string(), width: 6 },
+                KeyDef { display: "o".to_string(), id: "o".to_string(), width: 6 },
+                KeyDef { display: "p".to_string(), id: "p".to_string(), width: 6 },
+                KeyDef { display: "[".to_string(), id: "open_bracket".to_string(), width: 6 },
+                KeyDef { display: "]".to_string(), id: "close_bracket".to_string(), width: 6 },
+                KeyDef { display: "\\".to_string(), id: "backslash".to_string(), width: 12 },
+            ],
+            vec![
+                KeyDef { display: "caps".to_string(), id: "caps".to_string(), width: 12 },
+                KeyDef { display: "a".to_string(), id: "a".to_string(), width: 6 },
+                KeyDef { display: "s".to_string(), id: "s".to_string(), width: 6 },
+                KeyDef { display: "d".to_string(), id: "d".to_string(), width: 6 },
+                KeyDef { display: "f".to_string(), id: "f".to_string(), width: 6 },
+                KeyDef { display: "g".to_string(), id: "g".to_string(), width: 6 },
+                KeyDef { display: "h".to_string(), id: "h".to_string(), width: 6 },
+                KeyDef { display: "j".to_string(), id: "j".to_string(), width: 6 },
+                KeyDef { display: "k".to_string(), id: "k".to_string(), width: 6 },
+                KeyDef { display: "l".to_string(), id: "l".to_string(), width: 6 },
+                KeyDef { display: ";".to_string(), id: "semicolon".to_string(), width: 6 },
+                KeyDef { display: "'".to_string(), id: "quote".to_string(), width: 6 },
+                KeyDef { display: "enter".to_string(), id: "return".to_string(), width: 18 },
+            ],
+            vec![
+                KeyDef { display: "shift".to_string(), id: "lshift".to_string(), width: 15 },
+                KeyDef { display: "z".to_string(), id: "z".to_string(), width: 6 },
+                KeyDef { display: "x".to_string(), id: "x".to_string(), width: 6 },
+                KeyDef { display: "c".to_string(), id: "c".to_string(), width: 6 },
+                KeyDef { display: "v".to_string(), id: "v".to_string(), width: 6 },
+                KeyDef { display: "b".to_string(), id: "b".to_string(), width: 6 },
+                KeyDef { display: "n".to_string(), id: "n".to_string(), width: 6 },
+                KeyDef { display: "m".to_string(), id: "m".to_string(), width: 6 },
+                KeyDef { display: ",".to_string(), id: "comma".to_string(), width: 6 },
+                KeyDef { display: ".".to_string(), id: "period".to_string(), width: 6 },
+                KeyDef { display: "/".to_string(), id: "slash".to_string(), width: 6 },
+                KeyDef { display: "shift".to_string(), id: "rshift".to_string(), width: 15 },
+                KeyDef { display: "up".to_string(), id: "up".to_string(), width: 6 },
+            ],
+            vec![
+                KeyDef { display: "fn".to_string(), id: "fn".to_string(), width: 6 },
+                KeyDef { display: "ctrl".to_string(), id: "lctrl".to_string(), width: 6 },
+                KeyDef { display: "opt".to_string(), id: "lopt".to_string(), width: 6 },
+                KeyDef { display: "cmd".to_string(), id: "lcmd".to_string(), width: 9 },
+                KeyDef { display: "space".to_string(), id: "space".to_string(), width: 33 },
+                KeyDef { display: "cmd".to_string(), id: "rcmd".to_string(), width: 9 },
+                KeyDef { display: "opt".to_string(), id: "ropt".to_string(), width: 6 },
+                KeyDef { display: "left".to_string(), id: "left".to_string(), width: 7 },
+                KeyDef { display: "down".to_string(), id: "down".to_string(), width: 7 },
+                KeyDef { display: "right".to_string(), id: "right".to_string(), width: 7 },
+            ]
+        ]
+    } else {
+        app.keyboard_layout.clone()
+    }
+}
+
+fn centered_rect_fixed(width: u16, height: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(r.height.saturating_sub(height) / 2),
+            Constraint::Length(height),
+            Constraint::Min(0),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(r.width.saturating_sub(width) / 2),
+            Constraint::Length(width),
+            Constraint::Min(0),
+        ])
+        .split(popup_layout[1])[1]
+}
 
 pub fn ui(f: &mut Frame, app: &mut App) {
-    let area = f.area();
-    if area.width < 100 && app.show_overview {
+    let raw_area = f.area();
+    if raw_area.width < 100 && app.show_overview {
         let warning_text = Line::from(vec![
             Span::styled("⚠️  Terminal too narrow! ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
             Span::styled("Overview hidden. Expand terminal window to width >= 100.", Style::default().fg(Color::DarkGray)),
         ]);
-        f.render_widget(Paragraph::new(warning_text), area);
+        f.render_widget(Paragraph::new(warning_text), raw_area);
         return;
     }
 
@@ -135,40 +253,37 @@ pub fn ui(f: &mut Frame, app: &mut App) {
         return;
     }
 
+    // Apply unified outer margins from the terminal screen edges (vertical: 0 to remove top/bottom gaps)
+    let area = raw_area.inner(Margin { vertical: 0, horizontal: 2 });
     let show_keyboard = area.width >= 100;
 
-    let (rects, keyboard_area, table_area, footer_area, info_area) = if show_keyboard {
+    let (_, keyboard_area, table_area, footer_area, info_area) = if show_keyboard {
         let r = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1),     // spacer / header
-                Constraint::Length(15),    // keyboard layout
+                Constraint::Length(13),    // keyboard layout
+                Constraint::Length(1),     // spacer between keyboard and table (5)
                 Constraint::Min(10),       // shortcuts table
+                Constraint::Length(1),     // spacer between table and footer (6)
                 Constraint::Length(1),     // footer
+                Constraint::Length(1),     // spacer between footer and info bar (7)
                 Constraint::Length(1),     // info bar
             ])
             .split(area);
-        (r.clone(), Some(r[1]), r[2], r[3], r[4])
+        (r.clone(), Some(r[0]), r[2], r[4], r[6])
     } else {
         let r = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1),     // spacer / header with warning
                 Constraint::Min(10),       // shortcuts table
+                Constraint::Length(1),     // spacer between table and footer (6)
                 Constraint::Length(1),     // footer
+                Constraint::Length(1),     // spacer between footer and info bar (7)
                 Constraint::Length(1),     // info bar
             ])
             .split(area);
-        (r.clone(), None, r[1], r[2], r[3])
+        (r.clone(), None, r[0], r[2], r[4])
     };
-
-    if !show_keyboard && area.width < 100 {
-        let warning_text = Line::from(vec![
-            Span::styled("⚠️  Terminal too narrow! ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-            Span::styled("Keyboard layout hidden. Expand terminal window to width >= 100.", Style::default().fg(Color::DarkGray)),
-        ]);
-        f.render_widget(Paragraph::new(warning_text), rects[0]);
-    }
 
     let filtered_len;
     let selected_idx = app.state.selected().unwrap_or(0);
@@ -248,7 +363,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
                 let trigger_str = if item.keys.is_empty() { "-".to_string() } else { item.keys.join(" + ") };
 
                 Row::new(vec![
-                    Cell::from(source_str),
+                    Cell::from(format!(" {}", source_str)),
                     Cell::from(trigger_str),
                     Cell::from(Text::from(action_text)),
                     Cell::from(Text::from(desc_text)),
@@ -269,10 +384,16 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             Style::default().fg(Color::DarkGray)
         };
 
+        let table_title = if !show_keyboard {
+            format!(" Shortcuts (Total: {}) [⚠️ Terminal too narrow! Keyboard hidden] ", filtered_len)
+        } else {
+            format!(" Shortcuts (Total: {}) ", filtered_len)
+        };
+
         let table = Table::new(rows, [Constraint::Length(12), Constraint::Length(18), Constraint::Percentage(30), Constraint::Min(40)])
             .column_spacing(4)
-            .header(Row::new(vec!["Source", "Trigger", "Action", "Description"]).style(Style::default().fg(Color::DarkGray)))
-            .block(Block::default().borders(Borders::ALL).border_style(table_border_style).title(format!(" Shortcuts (Total: {}) ", filtered_len)))
+            .header(Row::new(vec![" Source", "Trigger", "Action", "Description"]).style(Style::default().fg(Color::DarkGray)))
+            .block(Block::default().borders(Borders::ALL).border_style(table_border_style).title(table_title))
             .row_highlight_style(selected_style);
 
         f.render_stateful_widget(table, table_area, &mut app.state);
@@ -297,6 +418,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     );
 
     let footer_text = Line::from(vec![
+        Span::raw(" "),
         Span::styled("[/]", Style::default().fg(Color::Cyan)), Span::raw(" search  |  "),
         Span::styled("[space]", Style::default().fg(Color::Cyan)), Span::raw(" key-mode  |  "),
         Span::styled("[m]", Style::default().fg(Color::Cyan)), Span::raw(" chord-mode  |  "),
@@ -323,6 +445,13 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     info_line.push(Span::raw("  |  "));
     info_line.push(Span::styled(format!(" Chord Mode (m): {}", mods_display), chord_mode_style));
 
+    if let Some((ref msg, instant)) = app.status_message {
+        if instant.elapsed().as_secs() < 3 {
+            info_line.push(Span::raw("  |  "));
+            info_line.push(Span::styled(format!("ℹ️  {}", msg), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)));
+        }
+    }
+
     f.render_widget(Paragraph::new(Line::from(info_line)), info_area);
 
     if app.show_help {
@@ -337,6 +466,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             Line::from(vec![Span::styled(" [space]  ", Style::default().fg(Color::Cyan)), Span::raw("Single Key Filter Mode")]),
             Line::from(vec![Span::styled(" [m]      ", Style::default().fg(Color::Cyan)), Span::raw("Chord Filter Mode (c/o/t/s, h:hyper, n:meh)")]),
             Line::from(vec![Span::styled(" [o]      ", Style::default().fg(Color::Cyan)), Span::raw("Toggle Multi-Keyboard Overview")]),
+            Line::from(vec![Span::styled(" [Shift+K]", Style::default().fg(Color::Cyan)), Span::raw("Select Keyboard Model (Keychron / MBP)")]),
             Line::from(""),
             Line::from(vec![Span::styled(" [p]      ", Style::default().fg(Color::Cyan)), Span::raw("Parse Configs")]),
             Line::from(vec![Span::styled(" [r]      ", Style::default().fg(Color::Cyan)), Span::raw("Reload JSON")]),
@@ -395,6 +525,41 @@ pub fn ui(f: &mut Frame, app: &mut App) {
         let help_block = Block::default().title(" Help ").borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan));
         f.render_widget(Paragraph::new(help_text).block(help_block), area);
     }
+
+    // Keyboard selection dropdown overlay
+    if app.show_keyboard_dropdown {
+        let height = (app.available_keyboards.len() as u16).saturating_add(2).max(4);
+        let area = centered_rect_fixed(40, height, f.area());
+        f.render_widget(Clear, area);
+
+        let mut dropdown_lines = vec![];
+        for (idx, kb) in app.available_keyboards.iter().enumerate() {
+            let is_selected = idx == app.keyboard_dropdown_idx;
+            let is_active = idx == app.selected_keyboard_idx;
+            
+            let mut spans = vec![];
+            if is_selected {
+                spans.push(Span::styled(" ▶ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+                spans.push(Span::styled(kb, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+            } else {
+                spans.push(Span::raw("   "));
+                spans.push(Span::styled(kb, Style::default().fg(Color::White)));
+            }
+            
+            if is_active {
+                spans.push(Span::styled(" [Active]", Style::default().fg(Color::Green).add_modifier(Modifier::DIM)));
+            }
+            
+            dropdown_lines.push(Line::from(spans));
+        }
+
+        let block = Block::default()
+            .title(Span::styled(" Select Keyboard (Shift+K) ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan));
+            
+        f.render_widget(Paragraph::new(dropdown_lines).block(block), area);
+    }
 }
 
 fn get_free_keys(app: &App) -> Vec<String> {
@@ -402,7 +567,8 @@ fn get_free_keys(app: &App) -> Vec<String> {
     let is_hyper = all_keys.iter().any(|k| k == "hyper");
 
     let mut free = Vec::new();
-    for row in &app.keyboard_layout {
+    let layout = get_keyboard_layout(app);
+    for row in &layout {
         for keydef in row {
             let is_special = SPECIAL_KEYS.contains(&keydef.id.as_str());
             if is_special { continue; }
@@ -564,15 +730,22 @@ fn draw_keyboard(f: &mut Frame, area: Rect, active_keys: &[String], free_keys: &
     };
     let free_color = Color::Rgb(0, 255, 127);
 
-    let mut text_lines = vec![];
-    let row_separator = "-".repeat(97);
-    text_lines.push(Line::from(""));
-    text_lines.push(Line::from(Span::styled(&row_separator, Style::default().fg(Color::DarkGray))));
+    // Fixed left padding to match shortcuts list indentation inside the block
+    let padding = 1;
+    let pad_str = " ".repeat(padding);
+    let row_separator = format!("{}{}", pad_str, "-".repeat(97));
 
+    let mut text_lines = vec![];
     let is_hyper = active_keys.iter().any(|k| k == "hyper");
 
-    for (row_idx, row) in app.keyboard_layout.iter().enumerate() {
+    let layout = get_keyboard_layout(app);
+
+    for (row_idx, row) in layout.iter().enumerate() {
         let mut spans = vec![];
+        if padding > 0 {
+            spans.push(Span::raw(pad_str.clone()));
+        }
+
         let row_info: Vec<(bool, bool)> = row.iter().map(|keydef| {
             let is_active = active_keys.iter().any(|k| is_key_matched(k, &keydef.id, &keydef.display)) || 
                            (is_hyper && (keydef.id.contains("cmd") || keydef.id.contains("opt") || keydef.id.contains("ctrl") || keydef.id.contains("shift")));
@@ -602,12 +775,18 @@ fn draw_keyboard(f: &mut Frame, area: Rect, active_keys: &[String], free_keys: &
             }
         }
         text_lines.push(Line::from(spans));
-        if row_idx < app.keyboard_layout.len() - 1 {
+        if row_idx < layout.len() - 1 {
             text_lines.push(Line::from(Span::styled(&row_separator, Style::default().fg(Color::DarkGray))));
         }
     }
-    text_lines.push(Line::from(Span::styled(&row_separator, Style::default().fg(Color::DarkGray))));
-    let title = format!(" {} Layout ", source.to_uppercase());
+
+    let kb_name = if app.selected_keyboard_idx == 1 {
+        "MBP Pro M3 Pro"
+    } else {
+        "Keychron K3D3"
+    };
+
+    let title = format!(" {} - {} Layout ", kb_name, source.to_uppercase());
     let block = Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)).title(title);
     f.render_widget(Paragraph::new(text_lines).block(block), area);
 }

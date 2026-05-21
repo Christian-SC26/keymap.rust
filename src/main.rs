@@ -50,6 +50,11 @@ fn run_app(terminal: &mut DefaultTerminal, app: &mut App) -> io::Result<()> {
         terminal.draw(|f| ui(f, app))?;
 
         if let Event::Key(key) = event::read()? {
+            if app.show_keyboard_dropdown {
+                handle_keyboard_dropdown_input(app, key);
+                continue;
+            }
+
             if app.show_help {
                 app.show_help = false;
                 continue;
@@ -62,15 +67,51 @@ fn run_app(terminal: &mut DefaultTerminal, app: &mut App) -> io::Result<()> {
             } else if app.is_filtering_key {
                 handle_key_filter_input(app, key);
             } else if app.is_filtering_modifier {
-                if handle_modifier_filter_input(app, key)? {
+                if handle_modifier_filter_input(terminal, app, key)? {
                     return Ok(());
                 }
             } else {
-                if handle_navigation_input(app, key)? {
+                if handle_navigation_input(terminal, app, key)? {
                     return Ok(());
                 }
             }
         }
+    }
+}
+
+fn handle_keyboard_dropdown_input(app: &mut App, key: event::KeyEvent) {
+    let code = match key.code {
+        KeyCode::Char(c) => KeyCode::Char(translate_char(c)),
+        _ => key.code,
+    };
+
+    match code {
+        KeyCode::Esc => {
+            app.show_keyboard_dropdown = false;
+        }
+        KeyCode::Enter => {
+            app.selected_keyboard_idx = app.keyboard_dropdown_idx;
+            app.show_keyboard_dropdown = false;
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            if !app.available_keyboards.is_empty() {
+                if app.keyboard_dropdown_idx > 0 {
+                    app.keyboard_dropdown_idx -= 1;
+                } else {
+                    app.keyboard_dropdown_idx = app.available_keyboards.len() - 1;
+                }
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            if !app.available_keyboards.is_empty() {
+                if app.keyboard_dropdown_idx < app.available_keyboards.len() - 1 {
+                    app.keyboard_dropdown_idx += 1;
+                } else {
+                    app.keyboard_dropdown_idx = 0;
+                }
+            }
+        }
+        _ => {}
     }
 }
 
@@ -92,7 +133,7 @@ fn translate_char(c: char) -> char {
     }
 }
 
-fn handle_modifier_filter_input(app: &mut App, key: event::KeyEvent) -> io::Result<bool> {
+fn handle_modifier_filter_input(terminal: &mut DefaultTerminal, app: &mut App, key: event::KeyEvent) -> io::Result<bool> {
     let code = match key.code {
         KeyCode::Char(c) => KeyCode::Char(translate_char(c)),
         _ => key.code,
@@ -159,7 +200,7 @@ fn handle_modifier_filter_input(app: &mut App, key: event::KeyEvent) -> io::Resu
             app.bulk_highlight = true;
             Ok(false)
         }
-        _ => handle_navigation_input(app, key),
+        _ => handle_navigation_input(terminal, app, key),
     }
 }
 
@@ -234,7 +275,7 @@ fn handle_search_input(app: &mut App, key: event::KeyEvent) {
     }
 }
 
-fn handle_navigation_input(app: &mut App, key: event::KeyEvent) -> io::Result<bool> {
+fn handle_navigation_input(terminal: &mut DefaultTerminal, app: &mut App, key: event::KeyEvent) -> io::Result<bool> {
     let code = match key.code {
         KeyCode::Char(c) => KeyCode::Char(translate_char(c)),
         _ => key.code,
@@ -242,12 +283,28 @@ fn handle_navigation_input(app: &mut App, key: event::KeyEvent) -> io::Result<bo
 
     match code {
         KeyCode::Char('q') => return Ok(true),
-        KeyCode::Char('r') => { let _ = app.reload(); }
-        KeyCode::Char('p') => { if let Some(ref path) = app.config_path { let _ = parser::run_parser(path); } }
+        KeyCode::Char('r') => {
+            let _ = app.reload();
+            app.set_status("Success! Reloaded JSON database");
+            let _ = terminal.clear(); // Clear terminal completely to fix doubling/ghosting
+        }
+        KeyCode::Char('p') => {
+            if let Some(ref path) = app.config_path {
+                let _ = parser::run_parser(path);
+                let _ = app.reload(); // Instantly reload list from the newly parsed JSON
+                app.set_status("Success! Parsed and reloaded configurations");
+                let _ = terminal.clear(); // Clear terminal completely to fix doubling/ghosting
+            }
+        }
         KeyCode::Char('s') => { app.sort_shortcuts(); }
         KeyCode::Char('?') => { app.show_help = true; }
         KeyCode::Char('/') => { app.is_searching = true; }
         KeyCode::Char('o') => { app.show_overview = !app.show_overview; }
+        KeyCode::Char('K') => {
+            app.show_keyboard_dropdown = true;
+            app.keyboard_dropdown_idx = app.selected_keyboard_idx;
+            app.bulk_highlight = false;
+        }
         
         KeyCode::Char(' ') => {
             app.is_filtering_key = true;

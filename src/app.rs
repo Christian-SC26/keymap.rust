@@ -69,6 +69,11 @@ pub struct App {
     pub keyboard_layout: Vec<Vec<KeyDef>>,
     pub filtered_indices: Vec<usize>,
     pub aliases: std::collections::HashMap<String, String>,
+    pub status_message: Option<(String, std::time::Instant)>,
+    pub available_keyboards: Vec<String>,
+    pub selected_keyboard_idx: usize,
+    pub keyboard_dropdown_idx: usize,
+    pub show_keyboard_dropdown: bool,
 }
 
 impl App {
@@ -150,6 +155,13 @@ impl App {
             item.search_text = format!("{} {} {} {}", item.action, item.desc, item.keys.join(" "), item.rules).to_lowercase();
         }
 
+        items.sort_by(|a, b| {
+            a.source.cmp(&b.source)
+                .then_with(|| a.rules.cmp(&b.rules))
+                .then_with(|| a.keys.join("+").cmp(&b.keys.join("+")))
+                .then_with(|| a.desc.cmp(&b.desc))
+        });
+
         let aliases = Self::load_app_aliases(&home);
 
         // Загрузка динамической раскладки клавиатуры
@@ -192,10 +204,19 @@ impl App {
             keyboard_layout,
             filtered_indices: Vec::new(),
             aliases,
+            status_message: None,
+            available_keyboards: vec!["Keychron K3D3".to_string(), "MBP Pro M3 Pro".to_string()],
+            selected_keyboard_idx: 0,
+            keyboard_dropdown_idx: 0,
+            show_keyboard_dropdown: false,
         };
         app.update_filtered_cache();
         app.state.select(Some(0));
         Ok(app)
+    }
+
+    pub fn set_status(&mut self, msg: &str) {
+        self.status_message = Some((msg.to_string(), std::time::Instant::now()));
     }
 
     pub fn reload(&mut self) -> Result<(), io::Error> {
@@ -211,6 +232,13 @@ impl App {
             for item in &mut items {
                 item.search_text = format!("{} {} {} {}", item.action, item.desc, item.keys.join(" "), item.rules).to_lowercase();
             }
+
+            items.sort_by(|a, b| {
+                a.source.cmp(&b.source)
+                    .then_with(|| a.rules.cmp(&b.rules))
+                    .then_with(|| a.keys.join("+").cmp(&b.keys.join("+")))
+                    .then_with(|| a.desc.cmp(&b.desc))
+            });
 
             self.aliases = Self::load_app_aliases(&home);
             self.items = items;
@@ -582,6 +610,11 @@ mod tests {
             keyboard_layout: vec![],
             filtered_indices: vec![],
             aliases: std::collections::HashMap::new(),
+            status_message: None,
+            available_keyboards: vec![],
+            selected_keyboard_idx: 0,
+            keyboard_dropdown_idx: 0,
+            show_keyboard_dropdown: false,
         };
         app.update_filtered_cache();
         app.state.select(Some(0));
@@ -622,6 +655,11 @@ mod tests {
             keyboard_layout: vec![],
             filtered_indices: vec![],
             aliases: std::collections::HashMap::new(),
+            status_message: None,
+            available_keyboards: vec![],
+            selected_keyboard_idx: 0,
+            keyboard_dropdown_idx: 0,
+            show_keyboard_dropdown: false,
         };
         app.update_filtered_cache();
 
@@ -657,6 +695,11 @@ mod tests {
             keyboard_layout: vec![],
             filtered_indices: vec![],
             aliases: std::collections::HashMap::new(),
+            status_message: None,
+            available_keyboards: vec![],
+            selected_keyboard_idx: 0,
+            keyboard_dropdown_idx: 0,
+            show_keyboard_dropdown: false,
         };
         app.update_filtered_cache();
         
@@ -700,6 +743,11 @@ mod tests {
             keyboard_layout: vec![],
             filtered_indices: vec![],
             aliases: std::collections::HashMap::new(),
+            status_message: None,
+            available_keyboards: vec![],
+            selected_keyboard_idx: 0,
+            keyboard_dropdown_idx: 0,
+            show_keyboard_dropdown: false,
         };
 
         // Normalize keys test
@@ -741,6 +789,11 @@ mod tests {
             keyboard_layout: vec![],
             filtered_indices: vec![],
             aliases: std::collections::HashMap::new(),
+            status_message: None,
+            available_keyboards: vec![],
+            selected_keyboard_idx: 0,
+            keyboard_dropdown_idx: 0,
+            show_keyboard_dropdown: false,
         };
 
         let analysis = app.analyze_source("skhd");
@@ -787,6 +840,11 @@ mod tests {
             keyboard_layout: vec![],
             filtered_indices: vec![],
             aliases,
+            status_message: None,
+            available_keyboards: vec![],
+            selected_keyboard_idx: 0,
+            keyboard_dropdown_idx: 0,
+            show_keyboard_dropdown: false,
         };
 
         // Query "g" should match ghostty (gh_d) but not xcode (xc_d)
