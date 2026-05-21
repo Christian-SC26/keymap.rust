@@ -1,4 +1,4 @@
-use crate::app::{App, Filter, KeyDef};
+use crate::app::{App, Filter, KeyDef, EditMode, EditField};
 
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect, Margin},
@@ -118,103 +118,11 @@ fn is_key_matched(ak_lower: &str, key_id: &str, display: &str) -> bool {
 }
 
 fn get_keyboard_layout(app: &App) -> Vec<Vec<KeyDef>> {
-    if app.selected_keyboard_idx == 1 {
-        // Return MBP Pro M3 Pro layout
-        vec![
-            vec![
-                KeyDef { display: "esc".to_string(), id: "esc".to_string(), width: 9 },
-                KeyDef { display: "F1".to_string(), id: "f1".to_string(), width: 6 },
-                KeyDef { display: "F2".to_string(), id: "f2".to_string(), width: 6 },
-                KeyDef { display: "F3".to_string(), id: "f3".to_string(), width: 6 },
-                KeyDef { display: "F4".to_string(), id: "f4".to_string(), width: 6 },
-                KeyDef { display: "F5".to_string(), id: "f5".to_string(), width: 6 },
-                KeyDef { display: "F6".to_string(), id: "f6".to_string(), width: 6 },
-                KeyDef { display: "F7".to_string(), id: "f7".to_string(), width: 6 },
-                KeyDef { display: "F8".to_string(), id: "f8".to_string(), width: 6 },
-                KeyDef { display: "F9".to_string(), id: "f9".to_string(), width: 6 },
-                KeyDef { display: "F10".to_string(), id: "f10".to_string(), width: 6 },
-                KeyDef { display: "F11".to_string(), id: "f11".to_string(), width: 6 },
-                KeyDef { display: "F12".to_string(), id: "f12".to_string(), width: 6 },
-                KeyDef { display: "power".to_string(), id: "power".to_string(), width: 15 },
-            ],
-            vec![
-                KeyDef { display: "~".to_string(), id: "grave_accent_and_tilde".to_string(), width: 6 },
-                KeyDef { display: "1".to_string(), id: "1".to_string(), width: 6 },
-                KeyDef { display: "2".to_string(), id: "2".to_string(), width: 6 },
-                KeyDef { display: "3".to_string(), id: "3".to_string(), width: 6 },
-                KeyDef { display: "4".to_string(), id: "4".to_string(), width: 6 },
-                KeyDef { display: "5".to_string(), id: "5".to_string(), width: 6 },
-                KeyDef { display: "6".to_string(), id: "6".to_string(), width: 6 },
-                KeyDef { display: "7".to_string(), id: "7".to_string(), width: 6 },
-                KeyDef { display: "8".to_string(), id: "8".to_string(), width: 6 },
-                KeyDef { display: "9".to_string(), id: "9".to_string(), width: 6 },
-                KeyDef { display: "0".to_string(), id: "0".to_string(), width: 6 },
-                KeyDef { display: "-".to_string(), id: "hyphen".to_string(), width: 6 },
-                KeyDef { display: "=".to_string(), id: "equal_sign".to_string(), width: 6 },
-                KeyDef { display: "back".to_string(), id: "backspace".to_string(), width: 18 },
-            ],
-            vec![
-                KeyDef { display: "tab".to_string(), id: "tab".to_string(), width: 12 },
-                KeyDef { display: "q".to_string(), id: "q".to_string(), width: 6 },
-                KeyDef { display: "w".to_string(), id: "w".to_string(), width: 6 },
-                KeyDef { display: "e".to_string(), id: "e".to_string(), width: 6 },
-                KeyDef { display: "r".to_string(), id: "r".to_string(), width: 6 },
-                KeyDef { display: "t".to_string(), id: "t".to_string(), width: 6 },
-                KeyDef { display: "y".to_string(), id: "y".to_string(), width: 6 },
-                KeyDef { display: "u".to_string(), id: "u".to_string(), width: 6 },
-                KeyDef { display: "i".to_string(), id: "i".to_string(), width: 6 },
-                KeyDef { display: "o".to_string(), id: "o".to_string(), width: 6 },
-                KeyDef { display: "p".to_string(), id: "p".to_string(), width: 6 },
-                KeyDef { display: "[".to_string(), id: "open_bracket".to_string(), width: 6 },
-                KeyDef { display: "]".to_string(), id: "close_bracket".to_string(), width: 6 },
-                KeyDef { display: "\\".to_string(), id: "backslash".to_string(), width: 12 },
-            ],
-            vec![
-                KeyDef { display: "caps".to_string(), id: "caps".to_string(), width: 12 },
-                KeyDef { display: "a".to_string(), id: "a".to_string(), width: 6 },
-                KeyDef { display: "s".to_string(), id: "s".to_string(), width: 6 },
-                KeyDef { display: "d".to_string(), id: "d".to_string(), width: 6 },
-                KeyDef { display: "f".to_string(), id: "f".to_string(), width: 6 },
-                KeyDef { display: "g".to_string(), id: "g".to_string(), width: 6 },
-                KeyDef { display: "h".to_string(), id: "h".to_string(), width: 6 },
-                KeyDef { display: "j".to_string(), id: "j".to_string(), width: 6 },
-                KeyDef { display: "k".to_string(), id: "k".to_string(), width: 6 },
-                KeyDef { display: "l".to_string(), id: "l".to_string(), width: 6 },
-                KeyDef { display: ";".to_string(), id: "semicolon".to_string(), width: 6 },
-                KeyDef { display: "'".to_string(), id: "quote".to_string(), width: 6 },
-                KeyDef { display: "enter".to_string(), id: "return".to_string(), width: 18 },
-            ],
-            vec![
-                KeyDef { display: "shift".to_string(), id: "lshift".to_string(), width: 15 },
-                KeyDef { display: "z".to_string(), id: "z".to_string(), width: 6 },
-                KeyDef { display: "x".to_string(), id: "x".to_string(), width: 6 },
-                KeyDef { display: "c".to_string(), id: "c".to_string(), width: 6 },
-                KeyDef { display: "v".to_string(), id: "v".to_string(), width: 6 },
-                KeyDef { display: "b".to_string(), id: "b".to_string(), width: 6 },
-                KeyDef { display: "n".to_string(), id: "n".to_string(), width: 6 },
-                KeyDef { display: "m".to_string(), id: "m".to_string(), width: 6 },
-                KeyDef { display: ",".to_string(), id: "comma".to_string(), width: 6 },
-                KeyDef { display: ".".to_string(), id: "period".to_string(), width: 6 },
-                KeyDef { display: "/".to_string(), id: "slash".to_string(), width: 6 },
-                KeyDef { display: "shift".to_string(), id: "rshift".to_string(), width: 15 },
-                KeyDef { display: "up".to_string(), id: "up".to_string(), width: 6 },
-            ],
-            vec![
-                KeyDef { display: "fn".to_string(), id: "fn".to_string(), width: 6 },
-                KeyDef { display: "ctrl".to_string(), id: "lctrl".to_string(), width: 6 },
-                KeyDef { display: "opt".to_string(), id: "lopt".to_string(), width: 6 },
-                KeyDef { display: "cmd".to_string(), id: "lcmd".to_string(), width: 9 },
-                KeyDef { display: "space".to_string(), id: "space".to_string(), width: 33 },
-                KeyDef { display: "cmd".to_string(), id: "rcmd".to_string(), width: 9 },
-                KeyDef { display: "opt".to_string(), id: "ropt".to_string(), width: 6 },
-                KeyDef { display: "left".to_string(), id: "left".to_string(), width: 7 },
-                KeyDef { display: "down".to_string(), id: "down".to_string(), width: 7 },
-                KeyDef { display: "right".to_string(), id: "right".to_string(), width: 7 },
-            ]
-        ]
-    } else {
-        app.keyboard_layout.clone()
+    if app.keyboards.is_empty() {
+        return vec![];
     }
+    let idx = app.selected_keyboard_idx.min(app.keyboards.len() - 1);
+    app.keyboards[idx].layout.clone()
 }
 
 fn centered_rect_fixed(width: u16, height: u16, r: Rect) -> Rect {
@@ -528,22 +436,23 @@ pub fn ui(f: &mut Frame, app: &mut App) {
 
     // Keyboard selection dropdown overlay
     if app.show_keyboard_dropdown {
-        let height = (app.available_keyboards.len() as u16).saturating_add(2).max(4);
-        let area = centered_rect_fixed(40, height, f.area());
+        let kb_count = app.keyboards.len() as u16;
+        let height = kb_count.saturating_add(5).max(6); // extra space for hints
+        let area = centered_rect_fixed(50, height, f.area());
         f.render_widget(Clear, area);
 
         let mut dropdown_lines = vec![];
-        for (idx, kb) in app.available_keyboards.iter().enumerate() {
+        for (idx, kb) in app.keyboards.iter().enumerate() {
             let is_selected = idx == app.keyboard_dropdown_idx;
             let is_active = idx == app.selected_keyboard_idx;
             
             let mut spans = vec![];
             if is_selected {
                 spans.push(Span::styled(" ▶ ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
-                spans.push(Span::styled(kb, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+                spans.push(Span::styled(&kb.name, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
             } else {
                 spans.push(Span::raw("   "));
-                spans.push(Span::styled(kb, Style::default().fg(Color::White)));
+                spans.push(Span::styled(&kb.name, Style::default().fg(Color::White)));
             }
             
             if is_active {
@@ -553,12 +462,118 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             dropdown_lines.push(Line::from(spans));
         }
 
+        // Подсказки управления
+        dropdown_lines.push(Line::from(""));
+        dropdown_lines.push(Line::from(vec![
+            Span::styled(" [a]", Style::default().fg(Color::Green)), Span::raw(" clone  "),
+            Span::styled("[d]", Style::default().fg(Color::Red)), Span::raw(" delete  "),
+            Span::styled("[e]", Style::default().fg(Color::Yellow)), Span::raw(" edit  "),
+            Span::styled("[r]", Style::default().fg(Color::Blue)), Span::raw(" rename"),
+        ]));
+
         let block = Block::default()
-            .title(Span::styled(" Select Keyboard (Shift+K) ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)))
+            .title(Span::styled(" Keyboards (Shift+K) ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan));
             
         f.render_widget(Paragraph::new(dropdown_lines).block(block), area);
+    }
+
+    // Modal: Keyboard Name Input
+    if app.edit_mode == EditMode::KeyboardNameInput {
+        let area = centered_rect_fixed(50, 5, f.area());
+        f.render_widget(Clear, area);
+
+        let title = match app.edit_input_field {
+            EditField::KeyboardName => " Enter Keyboard Name ",
+            _ => " Rename Keyboard ",
+        };
+
+        let lines = vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("  "),
+                Span::styled(&app.edit_input_buffer, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::styled("▏", Style::default().fg(Color::Cyan).add_modifier(Modifier::SLOW_BLINK)),
+            ]),
+            Line::from(""),
+        ];
+
+        let block = Block::default()
+            .title(Span::styled(title, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan));
+
+        f.render_widget(Paragraph::new(lines).block(block), area);
+    }
+
+    // Modal: Key Input (Display + ID)
+    if app.edit_mode == EditMode::KeyInput {
+        let area = centered_rect_fixed(50, 8, f.area());
+        f.render_widget(Clear, area);
+
+        let display_style = if app.edit_input_field == EditField::KeyDisplay {
+            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+        let id_style = if app.edit_input_field == EditField::KeyId {
+            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+
+        // Get current key values
+        let (current_display, current_id) = if app.edit_selected_row < app.keyboards[app.selected_keyboard_idx].layout.len() {
+            let row = &app.keyboards[app.selected_keyboard_idx].layout[app.edit_selected_row];
+            if app.edit_selected_col < row.len() {
+                (row[app.edit_selected_col].display.clone(), row[app.edit_selected_col].id.clone())
+            } else {
+                ("?".to_string(), "?".to_string())
+            }
+        } else {
+            ("?".to_string(), "?".to_string())
+        };
+
+        let display_val = if app.edit_input_field == EditField::KeyDisplay {
+            format!("{}▏", app.edit_input_buffer)
+        } else {
+            current_display
+        };
+        let id_val = if app.edit_input_field == EditField::KeyId {
+            format!("{}▏", app.edit_input_buffer)
+        } else {
+            current_id
+        };
+
+        let lines = vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  Display: ", display_style),
+                Span::styled(&display_val, Style::default().fg(Color::White)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  Key ID:  ", id_style),
+                Span::styled(&id_val, Style::default().fg(Color::White)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  [Tab]", Style::default().fg(Color::Cyan)),
+                Span::raw(" switch field  "),
+                Span::styled("[Enter]", Style::default().fg(Color::Green)),
+                Span::raw(" save  "),
+                Span::styled("[Esc]", Style::default().fg(Color::Red)),
+                Span::raw(" cancel"),
+            ]),
+        ];
+
+        let block = Block::default()
+            .title(Span::styled(" Edit Key ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow));
+
+        f.render_widget(Paragraph::new(lines).block(block), area);
     }
 }
 
@@ -729,6 +744,7 @@ fn draw_keyboard(f: &mut Frame, area: Rect, active_keys: &[String], free_keys: &
         _ => Color::White,
     };
     let free_color = Color::Rgb(0, 255, 127);
+    let is_editing = app.edit_mode == EditMode::Visual || app.edit_mode == EditMode::KeyInput;
 
     // Fixed left padding to match shortcuts list indentation inside the block
     let padding = 1;
@@ -756,12 +772,23 @@ fn draw_keyboard(f: &mut Frame, area: Rect, active_keys: &[String], free_keys: &
         for (i, keydef) in row.iter().enumerate() {
             let is_esc = keydef.id == "esc";
             let (is_active, is_free) = row_info[i];
+            let is_cursor = is_editing && row_idx == app.edit_selected_row && i == app.edit_selected_col;
             let prev_active = if i > 0 { row_info[i-1].0 } else { false };
             let slash_active = is_active || prev_active;
             let slash_style = if slash_active { Style::default().fg(active_color).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) };
             spans.push(Span::styled("/", slash_style));
-            let color = if is_esc { Color::Rgb(255, 165, 0) } else if is_active { active_color } else if is_free { free_color } else { Color::DarkGray };
-            let style = if is_active || is_esc || is_free { Style::default().fg(color).add_modifier(Modifier::BOLD) } else { Style::default().fg(color) };
+
+            let (_color, style) = if is_cursor {
+                (Color::Yellow, Style::default().fg(Color::Yellow).add_modifier(Modifier::REVERSED | Modifier::BOLD))
+            } else if is_esc {
+                (Color::Rgb(255, 165, 0), Style::default().fg(Color::Rgb(255, 165, 0)).add_modifier(Modifier::BOLD))
+            } else if is_active {
+                (active_color, Style::default().fg(active_color).add_modifier(Modifier::BOLD))
+            } else if is_free {
+                (free_color, Style::default().fg(free_color).add_modifier(Modifier::BOLD))
+            } else {
+                (Color::DarkGray, Style::default().fg(Color::DarkGray))
+            };
             
             let inner_width = keydef.width - 1;
             let text_chars = keydef.display.chars().count();
@@ -780,14 +807,21 @@ fn draw_keyboard(f: &mut Frame, area: Rect, active_keys: &[String], free_keys: &
         }
     }
 
-    let kb_name = if app.selected_keyboard_idx == 1 {
-        "MBP Pro M3 Pro"
+    let kb_name = if !app.keyboards.is_empty() {
+        let idx = app.selected_keyboard_idx.min(app.keyboards.len() - 1);
+        app.keyboards[idx].name.as_str()
     } else {
-        "Keychron K3D3"
+        "No Keyboard"
     };
 
-    let title = format!(" {} - {} Layout ", kb_name, source.to_uppercase());
-    let block = Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)).title(title);
+    let title = if is_editing {
+        format!(" {} [EDIT: h/j/k/l move, +/- width, i insert, d delete, Enter edit, Esc save] ", kb_name)
+    } else {
+        format!(" {} - {} Layout ", kb_name, source.to_uppercase())
+    };
+
+    let border_color = if is_editing { Color::Yellow } else { Color::DarkGray };
+    let block = Block::default().borders(Borders::ALL).border_style(Style::default().fg(border_color)).title(title);
     f.render_widget(Paragraph::new(text_lines).block(block), area);
 }
 

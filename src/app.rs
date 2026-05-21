@@ -1,7 +1,8 @@
 use ratatui::widgets::TableState;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{fs, io};
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 #[derive(Deserialize, Clone)]
 pub struct Shortcut {
@@ -16,11 +17,32 @@ pub struct Shortcut {
     pub search_text: String,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct KeyDef {
     pub display: String,
     pub id: String,
     pub width: usize,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct KeyboardConfig {
+    pub name: String,
+    pub layout: Vec<Vec<KeyDef>>,
+}
+
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub enum EditMode {
+    None,
+    Visual,
+    KeyInput,
+    KeyboardNameInput,
+}
+
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub enum EditField {
+    KeyDisplay,
+    KeyId,
+    KeyboardName,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -66,14 +88,18 @@ pub struct App {
     pub show_overview: bool,
     pub config_path: Option<String>,
     pub bulk_highlight: bool,
-    pub keyboard_layout: Vec<Vec<KeyDef>>,
+    pub keyboards: Vec<KeyboardConfig>,
     pub filtered_indices: Vec<usize>,
     pub aliases: std::collections::HashMap<String, String>,
     pub status_message: Option<(String, std::time::Instant)>,
-    pub available_keyboards: Vec<String>,
     pub selected_keyboard_idx: usize,
     pub keyboard_dropdown_idx: usize,
     pub show_keyboard_dropdown: bool,
+    pub edit_mode: EditMode,
+    pub edit_selected_row: usize,
+    pub edit_selected_col: usize,
+    pub edit_input_buffer: String,
+    pub edit_input_field: EditField,
 }
 
 impl App {
@@ -133,6 +159,195 @@ impl App {
         aliases
     }
 
+    fn keyboards_dir() -> PathBuf {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        PathBuf::from(format!("{}/.config/karabiner/keyboards", home))
+    }
+
+    pub fn default_keychron_layout() -> KeyboardConfig {
+        // Загрузка из keyboard_layout.json (основная раскладка Keychron)
+        let layout_paths = [
+            "keyboard_layout.json".to_string(),
+            "src/keyboard_layout.json".to_string(),
+            format!("{}/.config/karabiner/keyboard_layout.json", std::env::var("HOME").unwrap_or_default()),
+        ];
+        let mut layout: Vec<Vec<KeyDef>> = Vec::new();
+        for path in layout_paths {
+            if let Ok(c) = fs::read_to_string(&path) {
+                if let Ok(parsed) = serde_json::from_str(&c) {
+                    layout = parsed;
+                    break;
+                }
+            }
+        }
+        KeyboardConfig {
+            name: "Keychron K3D3".to_string(),
+            layout,
+        }
+    }
+
+    pub fn default_mbp_layout() -> KeyboardConfig {
+        KeyboardConfig {
+            name: "MBP Pro M3 Pro".to_string(),
+            layout: vec![
+                vec![
+                    KeyDef { display: "esc".to_string(), id: "esc".to_string(), width: 9 },
+                    KeyDef { display: "F1".to_string(), id: "f1".to_string(), width: 6 },
+                    KeyDef { display: "F2".to_string(), id: "f2".to_string(), width: 6 },
+                    KeyDef { display: "F3".to_string(), id: "f3".to_string(), width: 6 },
+                    KeyDef { display: "F4".to_string(), id: "f4".to_string(), width: 6 },
+                    KeyDef { display: "F5".to_string(), id: "f5".to_string(), width: 6 },
+                    KeyDef { display: "F6".to_string(), id: "f6".to_string(), width: 6 },
+                    KeyDef { display: "F7".to_string(), id: "f7".to_string(), width: 6 },
+                    KeyDef { display: "F8".to_string(), id: "f8".to_string(), width: 6 },
+                    KeyDef { display: "F9".to_string(), id: "f9".to_string(), width: 6 },
+                    KeyDef { display: "F10".to_string(), id: "f10".to_string(), width: 6 },
+                    KeyDef { display: "F11".to_string(), id: "f11".to_string(), width: 6 },
+                    KeyDef { display: "F12".to_string(), id: "f12".to_string(), width: 6 },
+                    KeyDef { display: "power".to_string(), id: "power".to_string(), width: 15 },
+                ],
+                vec![
+                    KeyDef { display: "~".to_string(), id: "grave_accent_and_tilde".to_string(), width: 6 },
+                    KeyDef { display: "1".to_string(), id: "1".to_string(), width: 6 },
+                    KeyDef { display: "2".to_string(), id: "2".to_string(), width: 6 },
+                    KeyDef { display: "3".to_string(), id: "3".to_string(), width: 6 },
+                    KeyDef { display: "4".to_string(), id: "4".to_string(), width: 6 },
+                    KeyDef { display: "5".to_string(), id: "5".to_string(), width: 6 },
+                    KeyDef { display: "6".to_string(), id: "6".to_string(), width: 6 },
+                    KeyDef { display: "7".to_string(), id: "7".to_string(), width: 6 },
+                    KeyDef { display: "8".to_string(), id: "8".to_string(), width: 6 },
+                    KeyDef { display: "9".to_string(), id: "9".to_string(), width: 6 },
+                    KeyDef { display: "0".to_string(), id: "0".to_string(), width: 6 },
+                    KeyDef { display: "-".to_string(), id: "hyphen".to_string(), width: 6 },
+                    KeyDef { display: "=".to_string(), id: "equal_sign".to_string(), width: 6 },
+                    KeyDef { display: "back".to_string(), id: "backspace".to_string(), width: 18 },
+                ],
+                vec![
+                    KeyDef { display: "tab".to_string(), id: "tab".to_string(), width: 12 },
+                    KeyDef { display: "q".to_string(), id: "q".to_string(), width: 6 },
+                    KeyDef { display: "w".to_string(), id: "w".to_string(), width: 6 },
+                    KeyDef { display: "e".to_string(), id: "e".to_string(), width: 6 },
+                    KeyDef { display: "r".to_string(), id: "r".to_string(), width: 6 },
+                    KeyDef { display: "t".to_string(), id: "t".to_string(), width: 6 },
+                    KeyDef { display: "y".to_string(), id: "y".to_string(), width: 6 },
+                    KeyDef { display: "u".to_string(), id: "u".to_string(), width: 6 },
+                    KeyDef { display: "i".to_string(), id: "i".to_string(), width: 6 },
+                    KeyDef { display: "o".to_string(), id: "o".to_string(), width: 6 },
+                    KeyDef { display: "p".to_string(), id: "p".to_string(), width: 6 },
+                    KeyDef { display: "[".to_string(), id: "open_bracket".to_string(), width: 6 },
+                    KeyDef { display: "]".to_string(), id: "close_bracket".to_string(), width: 6 },
+                    KeyDef { display: "\\".to_string(), id: "backslash".to_string(), width: 12 },
+                ],
+                vec![
+                    KeyDef { display: "caps".to_string(), id: "caps".to_string(), width: 12 },
+                    KeyDef { display: "a".to_string(), id: "a".to_string(), width: 6 },
+                    KeyDef { display: "s".to_string(), id: "s".to_string(), width: 6 },
+                    KeyDef { display: "d".to_string(), id: "d".to_string(), width: 6 },
+                    KeyDef { display: "f".to_string(), id: "f".to_string(), width: 6 },
+                    KeyDef { display: "g".to_string(), id: "g".to_string(), width: 6 },
+                    KeyDef { display: "h".to_string(), id: "h".to_string(), width: 6 },
+                    KeyDef { display: "j".to_string(), id: "j".to_string(), width: 6 },
+                    KeyDef { display: "k".to_string(), id: "k".to_string(), width: 6 },
+                    KeyDef { display: "l".to_string(), id: "l".to_string(), width: 6 },
+                    KeyDef { display: ";".to_string(), id: "semicolon".to_string(), width: 6 },
+                    KeyDef { display: "'".to_string(), id: "quote".to_string(), width: 6 },
+                    KeyDef { display: "enter".to_string(), id: "return".to_string(), width: 18 },
+                ],
+                vec![
+                    KeyDef { display: "shift".to_string(), id: "lshift".to_string(), width: 15 },
+                    KeyDef { display: "z".to_string(), id: "z".to_string(), width: 6 },
+                    KeyDef { display: "x".to_string(), id: "x".to_string(), width: 6 },
+                    KeyDef { display: "c".to_string(), id: "c".to_string(), width: 6 },
+                    KeyDef { display: "v".to_string(), id: "v".to_string(), width: 6 },
+                    KeyDef { display: "b".to_string(), id: "b".to_string(), width: 6 },
+                    KeyDef { display: "n".to_string(), id: "n".to_string(), width: 6 },
+                    KeyDef { display: "m".to_string(), id: "m".to_string(), width: 6 },
+                    KeyDef { display: ",".to_string(), id: "comma".to_string(), width: 6 },
+                    KeyDef { display: ".".to_string(), id: "period".to_string(), width: 6 },
+                    KeyDef { display: "/".to_string(), id: "slash".to_string(), width: 6 },
+                    KeyDef { display: "shift".to_string(), id: "rshift".to_string(), width: 15 },
+                    KeyDef { display: "up".to_string(), id: "up".to_string(), width: 6 },
+                ],
+                vec![
+                    KeyDef { display: "fn".to_string(), id: "fn".to_string(), width: 6 },
+                    KeyDef { display: "ctrl".to_string(), id: "lctrl".to_string(), width: 6 },
+                    KeyDef { display: "opt".to_string(), id: "lopt".to_string(), width: 6 },
+                    KeyDef { display: "cmd".to_string(), id: "lcmd".to_string(), width: 9 },
+                    KeyDef { display: "space".to_string(), id: "space".to_string(), width: 33 },
+                    KeyDef { display: "cmd".to_string(), id: "rcmd".to_string(), width: 9 },
+                    KeyDef { display: "opt".to_string(), id: "ropt".to_string(), width: 6 },
+                    KeyDef { display: "left".to_string(), id: "left".to_string(), width: 7 },
+                    KeyDef { display: "down".to_string(), id: "down".to_string(), width: 7 },
+                    KeyDef { display: "right".to_string(), id: "right".to_string(), width: 7 },
+                ],
+            ],
+        }
+    }
+
+    pub fn load_keyboards() -> Vec<KeyboardConfig> {
+        let dir = Self::keyboards_dir();
+        let mut keyboards = Vec::new();
+
+        if dir.exists() {
+            if let Ok(entries) = fs::read_dir(&dir) {
+                let mut files: Vec<_> = entries.filter_map(|e| e.ok()).collect();
+                files.sort_by_key(|e| e.file_name());
+                for entry in files {
+                    let path = entry.path();
+                    if path.extension().map_or(false, |ext| ext == "json") {
+                        if let Ok(content) = fs::read_to_string(&path) {
+                            if let Ok(kb) = serde_json::from_str::<KeyboardConfig>(&content) {
+                                keyboards.push(kb);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Если ничего не нашли, создаем дефолтные
+        if keyboards.is_empty() {
+            let keychron = Self::default_keychron_layout();
+            let mbp = Self::default_mbp_layout();
+            keyboards.push(keychron);
+            keyboards.push(mbp);
+
+            // Сохраняем дефолтные на диск
+            let _ = fs::create_dir_all(&dir);
+            for kb in &keyboards {
+                let file_path = dir.join(format!("{}.json", kb.name));
+                if let Ok(json) = serde_json::to_string_pretty(kb) {
+                    let _ = fs::write(&file_path, json);
+                }
+            }
+        }
+
+        keyboards
+    }
+
+    pub fn save_keyboard(&self, idx: usize) -> Result<(), io::Error> {
+        if idx >= self.keyboards.len() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid keyboard index"));
+        }
+        let dir = Self::keyboards_dir();
+        fs::create_dir_all(&dir)?;
+        let kb = &self.keyboards[idx];
+        let file_path = dir.join(format!("{}.json", kb.name));
+        let json = serde_json::to_string_pretty(kb)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        fs::write(&file_path, json)
+    }
+
+    pub fn delete_keyboard_file(&self, name: &str) -> Result<(), io::Error> {
+        let dir = Self::keyboards_dir();
+        let file_path = dir.join(format!("{}.json", name));
+        if file_path.exists() {
+            fs::remove_file(&file_path)
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn new(custom_path: Option<String>) -> Result<App, io::Error> {
         let home = std::env::var("HOME").map_err(|_| {
             io::Error::new(io::ErrorKind::NotFound, "HOME environment variable not set")
@@ -163,27 +378,7 @@ impl App {
         });
 
         let aliases = Self::load_app_aliases(&home);
-
-        // Загрузка динамической раскладки клавиатуры
-        let layout_paths = [
-            "keyboard_layout.json".to_string(),
-            "src/keyboard_layout.json".to_string(),
-            format!("{}/.config/karabiner/keyboard_layout.json", home),
-        ];
-
-        let mut keyboard_layout: Vec<Vec<KeyDef>> = Vec::new();
-        for layout_path in layout_paths {
-            if let Ok(c) = fs::read_to_string(&layout_path) {
-                if let Ok(parsed) = serde_json::from_str(&c) {
-                    keyboard_layout = parsed;
-                    break;
-                }
-            }
-        }
-        
-        if keyboard_layout.is_empty() {
-            eprintln!("[Warn] Failed to load keyboard_layout.json");
-        }
+        let keyboards = Self::load_keyboards();
 
         let mut app = App {
             state: TableState::default(),
@@ -201,14 +396,18 @@ impl App {
             show_overview: false,
             config_path: Some(path),
             bulk_highlight: false,
-            keyboard_layout,
+            keyboards,
             filtered_indices: Vec::new(),
             aliases,
             status_message: None,
-            available_keyboards: vec!["Keychron K3D3".to_string(), "MBP Pro M3 Pro".to_string()],
             selected_keyboard_idx: 0,
             keyboard_dropdown_idx: 0,
             show_keyboard_dropdown: false,
+            edit_mode: EditMode::None,
+            edit_selected_row: 0,
+            edit_selected_col: 0,
+            edit_input_buffer: String::new(),
+            edit_input_field: EditField::KeyDisplay,
         };
         app.update_filtered_cache();
         app.state.select(Some(0));
@@ -607,14 +806,18 @@ mod tests {
             show_overview: false,
             config_path: None,
             bulk_highlight: false,
-            keyboard_layout: vec![],
+            keyboards: vec![],
             filtered_indices: vec![],
             aliases: std::collections::HashMap::new(),
             status_message: None,
-            available_keyboards: vec![],
             selected_keyboard_idx: 0,
             keyboard_dropdown_idx: 0,
             show_keyboard_dropdown: false,
+            edit_mode: EditMode::None,
+            edit_selected_row: 0,
+            edit_selected_col: 0,
+            edit_input_buffer: String::new(),
+            edit_input_field: EditField::KeyDisplay,
         };
         app.update_filtered_cache();
         app.state.select(Some(0));
@@ -652,14 +855,18 @@ mod tests {
             show_overview: false,
             config_path: None,
             bulk_highlight: false,
-            keyboard_layout: vec![],
+            keyboards: vec![],
             filtered_indices: vec![],
             aliases: std::collections::HashMap::new(),
             status_message: None,
-            available_keyboards: vec![],
             selected_keyboard_idx: 0,
             keyboard_dropdown_idx: 0,
             show_keyboard_dropdown: false,
+            edit_mode: EditMode::None,
+            edit_selected_row: 0,
+            edit_selected_col: 0,
+            edit_input_buffer: String::new(),
+            edit_input_field: EditField::KeyDisplay,
         };
         app.update_filtered_cache();
 
@@ -692,14 +899,18 @@ mod tests {
             show_overview: false,
             config_path: None,
             bulk_highlight: false,
-            keyboard_layout: vec![],
+            keyboards: vec![],
             filtered_indices: vec![],
             aliases: std::collections::HashMap::new(),
             status_message: None,
-            available_keyboards: vec![],
             selected_keyboard_idx: 0,
             keyboard_dropdown_idx: 0,
             show_keyboard_dropdown: false,
+            edit_mode: EditMode::None,
+            edit_selected_row: 0,
+            edit_selected_col: 0,
+            edit_input_buffer: String::new(),
+            edit_input_field: EditField::KeyDisplay,
         };
         app.update_filtered_cache();
         
@@ -740,14 +951,18 @@ mod tests {
             show_overview: false,
             config_path: None,
             bulk_highlight: false,
-            keyboard_layout: vec![],
+            keyboards: vec![],
             filtered_indices: vec![],
             aliases: std::collections::HashMap::new(),
             status_message: None,
-            available_keyboards: vec![],
             selected_keyboard_idx: 0,
             keyboard_dropdown_idx: 0,
             show_keyboard_dropdown: false,
+            edit_mode: EditMode::None,
+            edit_selected_row: 0,
+            edit_selected_col: 0,
+            edit_input_buffer: String::new(),
+            edit_input_field: EditField::KeyDisplay,
         };
 
         // Normalize keys test
@@ -786,14 +1001,18 @@ mod tests {
             show_overview: false,
             config_path: None,
             bulk_highlight: false,
-            keyboard_layout: vec![],
+            keyboards: vec![],
             filtered_indices: vec![],
             aliases: std::collections::HashMap::new(),
             status_message: None,
-            available_keyboards: vec![],
             selected_keyboard_idx: 0,
             keyboard_dropdown_idx: 0,
             show_keyboard_dropdown: false,
+            edit_mode: EditMode::None,
+            edit_selected_row: 0,
+            edit_selected_col: 0,
+            edit_input_buffer: String::new(),
+            edit_input_field: EditField::KeyDisplay,
         };
 
         let analysis = app.analyze_source("skhd");
@@ -837,14 +1056,18 @@ mod tests {
             show_overview: false,
             config_path: None,
             bulk_highlight: false,
-            keyboard_layout: vec![],
+            keyboards: vec![],
             filtered_indices: vec![],
             aliases,
             status_message: None,
-            available_keyboards: vec![],
             selected_keyboard_idx: 0,
             keyboard_dropdown_idx: 0,
             show_keyboard_dropdown: false,
+            edit_mode: EditMode::None,
+            edit_selected_row: 0,
+            edit_selected_col: 0,
+            edit_input_buffer: String::new(),
+            edit_input_field: EditField::KeyDisplay,
         };
 
         // Query "g" should match ghostty (gh_d) but not xcode (xc_d)

@@ -6,7 +6,7 @@ mod app;
 mod parser;
 mod ui;
 
-use crate::app::{App, Filter};
+use crate::app::{App, Filter, EditMode, EditField, KeyDef};
 use crate::ui::ui;
 
 // --- Главный цикл ---
@@ -50,6 +50,23 @@ fn run_app(terminal: &mut DefaultTerminal, app: &mut App) -> io::Result<()> {
         terminal.draw(|f| ui(f, app))?;
 
         if let Event::Key(key) = event::read()? {
+            // Edit mode handlers (highest priority)
+            match app.edit_mode {
+                EditMode::Visual => {
+                    handle_visual_edit_input(app, key);
+                    continue;
+                }
+                EditMode::KeyInput => {
+                    handle_key_input_events(app, key);
+                    continue;
+                }
+                EditMode::KeyboardNameInput => {
+                    handle_keyboard_name_input_events(app, key);
+                    continue;
+                }
+                EditMode::None => {}
+            }
+
             if app.show_keyboard_dropdown {
                 handle_keyboard_dropdown_input(app, key);
                 continue;
@@ -94,21 +111,70 @@ fn handle_keyboard_dropdown_input(app: &mut App, key: event::KeyEvent) {
             app.show_keyboard_dropdown = false;
         }
         KeyCode::Up | KeyCode::Char('k') => {
-            if !app.available_keyboards.is_empty() {
+            if !app.keyboards.is_empty() {
                 if app.keyboard_dropdown_idx > 0 {
                     app.keyboard_dropdown_idx -= 1;
                 } else {
-                    app.keyboard_dropdown_idx = app.available_keyboards.len() - 1;
+                    app.keyboard_dropdown_idx = app.keyboards.len() - 1;
                 }
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            if !app.available_keyboards.is_empty() {
-                if app.keyboard_dropdown_idx < app.available_keyboards.len() - 1 {
+            if !app.keyboards.is_empty() {
+                if app.keyboard_dropdown_idx < app.keyboards.len() - 1 {
                     app.keyboard_dropdown_idx += 1;
                 } else {
                     app.keyboard_dropdown_idx = 0;
                 }
+            }
+        }
+        // Clone (add) keyboard
+        KeyCode::Char('a') => {
+            if !app.keyboards.is_empty() {
+                let source_idx = app.keyboard_dropdown_idx;
+                let cloned = app.keyboards[source_idx].clone();
+                app.edit_input_buffer = format!("{} (Copy)", cloned.name);
+                app.edit_input_field = EditField::KeyboardName;
+                app.edit_mode = EditMode::KeyboardNameInput;
+                app.show_keyboard_dropdown = false;
+            }
+        }
+        // Delete keyboard
+        KeyCode::Char('d') => {
+            if app.keyboards.len() > 1 {
+                let idx = app.keyboard_dropdown_idx;
+                let name = app.keyboards[idx].name.clone();
+                let _ = app.delete_keyboard_file(&name);
+                app.keyboards.remove(idx);
+                if app.selected_keyboard_idx >= app.keyboards.len() {
+                    app.selected_keyboard_idx = app.keyboards.len() - 1;
+                }
+                if app.keyboard_dropdown_idx >= app.keyboards.len() {
+                    app.keyboard_dropdown_idx = app.keyboards.len() - 1;
+                }
+                app.set_status(&format!("Keyboard '{}' deleted", name));
+            } else {
+                app.set_status("Cannot delete the last keyboard");
+            }
+        }
+        // Edit keyboard layout
+        KeyCode::Char('e') => {
+            if !app.keyboards.is_empty() {
+                app.selected_keyboard_idx = app.keyboard_dropdown_idx;
+                app.edit_mode = EditMode::Visual;
+                app.edit_selected_row = 0;
+                app.edit_selected_col = 0;
+                app.show_keyboard_dropdown = false;
+            }
+        }
+        // Rename keyboard
+        KeyCode::Char('r') => {
+            if !app.keyboards.is_empty() {
+                let idx = app.keyboard_dropdown_idx;
+                app.edit_input_buffer = app.keyboards[idx].name.clone();
+                app.edit_input_field = EditField::KeyDisplay; // reuse as "rename" marker
+                app.edit_mode = EditMode::KeyboardNameInput;
+                app.show_keyboard_dropdown = false;
             }
         }
         _ => {}
@@ -347,4 +413,255 @@ fn handle_navigation_input(terminal: &mut DefaultTerminal, app: &mut App, key: e
         _ => {}
     }
     Ok(false)
+}
+
+// --- Visual Layout Editor ---
+fn handle_visual_edit_input(app: &mut App, key: event::KeyEvent) {
+    if app.keyboards.is_empty() {
+        app.edit_mode = EditMode::None;
+        return;
+    }
+    let idx = app.selected_keyboard_idx;
+    let layout = &app.keyboards[idx].layout;
+    if layout.is_empty() {
+        app.edit_mode = EditMode::None;
+        return;
+    }
+
+    let code = match key.code {
+        KeyCode::Char(c) => KeyCode::Char(translate_char(c)),
+        _ => key.code,
+    };
+
+    match code {
+        // Navigation
+        KeyCode::Left | KeyCode::Char('h') => {
+            if app.edit_selected_col > 0 {
+                app.edit_selected_col -= 1;
+            }
+        }
+        KeyCode::Right | KeyCode::Char('l') => {
+            let row_len = layout[app.edit_selected_row].len();
+            if app.edit_selected_col < row_len.saturating_sub(1) {
+                app.edit_selected_col += 1;
+            }
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            if app.edit_selected_row > 0 {
+                app.edit_selected_row -= 1;
+                let row_len = layout[app.edit_selected_row].len();
+                if app.edit_selected_col >= row_len {
+                    app.edit_selected_col = row_len.saturating_sub(1);
+                }
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            if app.edit_selected_row < layout.len() - 1 {
+                app.edit_selected_row += 1;
+                let row_len = layout[app.edit_selected_row].len();
+                if app.edit_selected_col >= row_len {
+                    app.edit_selected_col = row_len.saturating_sub(1);
+                }
+            }
+        }
+        // Increase width
+        KeyCode::Char('+') | KeyCode::Char('=') => {
+            let row = app.edit_selected_row;
+            let col = app.edit_selected_col;
+            if row < app.keyboards[idx].layout.len() && col < app.keyboards[idx].layout[row].len() {
+                app.keyboards[idx].layout[row][col].width += 1;
+            }
+        }
+        // Decrease width
+        KeyCode::Char('-') => {
+            let row = app.edit_selected_row;
+            let col = app.edit_selected_col;
+            if row < app.keyboards[idx].layout.len() && col < app.keyboards[idx].layout[row].len() {
+                let w = &mut app.keyboards[idx].layout[row][col].width;
+                if *w > 2 {
+                    *w -= 1;
+                }
+            }
+        }
+        // Insert key after current
+        KeyCode::Char('i') => {
+            let row = app.edit_selected_row;
+            let col = app.edit_selected_col;
+            if row < app.keyboards[idx].layout.len() {
+                let new_key = KeyDef {
+                    display: "new".to_string(),
+                    id: "new".to_string(),
+                    width: 6,
+                };
+                let insert_pos = (col + 1).min(app.keyboards[idx].layout[row].len());
+                app.keyboards[idx].layout[row].insert(insert_pos, new_key);
+                app.edit_selected_col = insert_pos;
+            }
+        }
+        // Delete key
+        KeyCode::Char('x') => {
+            let row = app.edit_selected_row;
+            let col = app.edit_selected_col;
+            if row < app.keyboards[idx].layout.len() && !app.keyboards[idx].layout[row].is_empty() {
+                app.keyboards[idx].layout[row].remove(col);
+                if app.keyboards[idx].layout[row].is_empty() {
+                    // Remove empty row
+                    app.keyboards[idx].layout.remove(row);
+                    if app.edit_selected_row >= app.keyboards[idx].layout.len() && !app.keyboards[idx].layout.is_empty() {
+                        app.edit_selected_row = app.keyboards[idx].layout.len() - 1;
+                    }
+                    app.edit_selected_col = 0;
+                } else if app.edit_selected_col >= app.keyboards[idx].layout[row].len() {
+                    app.edit_selected_col = app.keyboards[idx].layout[row].len() - 1;
+                }
+            }
+        }
+        // Add new row
+        KeyCode::Char('a') => {
+            let new_row = vec![KeyDef {
+                display: "new".to_string(),
+                id: "new".to_string(),
+                width: 6,
+            }];
+            app.keyboards[idx].layout.push(new_row);
+            app.edit_selected_row = app.keyboards[idx].layout.len() - 1;
+            app.edit_selected_col = 0;
+        }
+        // Edit key text (Enter -> KeyInput modal)
+        KeyCode::Enter => {
+            let row = app.edit_selected_row;
+            let col = app.edit_selected_col;
+            if row < app.keyboards[idx].layout.len() && col < app.keyboards[idx].layout[row].len() {
+                app.edit_input_buffer = app.keyboards[idx].layout[row][col].display.clone();
+                app.edit_input_field = EditField::KeyDisplay;
+                app.edit_mode = EditMode::KeyInput;
+            }
+        }
+        // Save and exit
+        KeyCode::Esc => {
+            let _ = app.save_keyboard(idx);
+            app.edit_mode = EditMode::None;
+            app.set_status("✅ Layout saved!");
+        }
+        _ => {}
+    }
+}
+
+// --- Key Input Modal (Display + ID) ---
+fn handle_key_input_events(app: &mut App, key: event::KeyEvent) {
+    match key.code {
+        KeyCode::Esc => {
+            app.edit_input_buffer.clear();
+            app.edit_mode = EditMode::Visual;
+        }
+        KeyCode::Tab | KeyCode::BackTab => {
+            // Save current field and switch
+            let idx = app.selected_keyboard_idx;
+            let row = app.edit_selected_row;
+            let col = app.edit_selected_col;
+            if idx < app.keyboards.len() && row < app.keyboards[idx].layout.len() && col < app.keyboards[idx].layout[row].len() {
+                match app.edit_input_field {
+                    EditField::KeyDisplay => {
+                        if !app.edit_input_buffer.is_empty() {
+                            app.keyboards[idx].layout[row][col].display = app.edit_input_buffer.clone();
+                        }
+                        app.edit_input_buffer = app.keyboards[idx].layout[row][col].id.clone();
+                        app.edit_input_field = EditField::KeyId;
+                    }
+                    EditField::KeyId => {
+                        if !app.edit_input_buffer.is_empty() {
+                            app.keyboards[idx].layout[row][col].id = app.edit_input_buffer.clone();
+                        }
+                        app.edit_input_buffer = app.keyboards[idx].layout[row][col].display.clone();
+                        app.edit_input_field = EditField::KeyDisplay;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        KeyCode::Enter => {
+            let idx = app.selected_keyboard_idx;
+            let row = app.edit_selected_row;
+            let col = app.edit_selected_col;
+            if idx < app.keyboards.len() && row < app.keyboards[idx].layout.len() && col < app.keyboards[idx].layout[row].len() {
+                match app.edit_input_field {
+                    EditField::KeyDisplay => {
+                        if !app.edit_input_buffer.is_empty() {
+                            app.keyboards[idx].layout[row][col].display = app.edit_input_buffer.clone();
+                        }
+                        // Switch to ID field
+                        app.edit_input_buffer = app.keyboards[idx].layout[row][col].id.clone();
+                        app.edit_input_field = EditField::KeyId;
+                    }
+                    EditField::KeyId => {
+                        if !app.edit_input_buffer.is_empty() {
+                            app.keyboards[idx].layout[row][col].id = app.edit_input_buffer.clone();
+                        }
+                        // Done, back to visual
+                        app.edit_input_buffer.clear();
+                        app.edit_mode = EditMode::Visual;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        KeyCode::Backspace => {
+            app.edit_input_buffer.pop();
+        }
+        KeyCode::Char(c) => {
+            app.edit_input_buffer.push(c);
+        }
+        _ => {}
+    }
+}
+
+// --- Keyboard Name Input Modal ---
+fn handle_keyboard_name_input_events(app: &mut App, key: event::KeyEvent) {
+    match key.code {
+        KeyCode::Esc => {
+            app.edit_input_buffer.clear();
+            app.edit_mode = EditMode::None;
+        }
+        KeyCode::Enter => {
+            let new_name = app.edit_input_buffer.trim().to_string();
+            if new_name.is_empty() {
+                app.set_status("Name cannot be empty");
+                return;
+            }
+
+            if app.edit_input_field == EditField::KeyboardName {
+                // Clone mode: create new keyboard with cloned layout
+                let source_idx = app.keyboard_dropdown_idx.min(app.keyboards.len().saturating_sub(1));
+                if source_idx < app.keyboards.len() {
+                    let mut new_kb = app.keyboards[source_idx].clone();
+                    new_kb.name = new_name;
+                    app.keyboards.push(new_kb);
+                    let new_idx = app.keyboards.len() - 1;
+                    app.selected_keyboard_idx = new_idx;
+                    let _ = app.save_keyboard(new_idx);
+                    app.set_status("✅ New keyboard created!");
+                }
+            } else {
+                // Rename mode
+                let idx = app.keyboard_dropdown_idx.min(app.keyboards.len().saturating_sub(1));
+                if idx < app.keyboards.len() {
+                    let old_name = app.keyboards[idx].name.clone();
+                    let _ = app.delete_keyboard_file(&old_name);
+                    app.keyboards[idx].name = new_name;
+                    let _ = app.save_keyboard(idx);
+                    app.set_status("✅ Keyboard renamed!");
+                }
+            }
+
+            app.edit_input_buffer.clear();
+            app.edit_mode = EditMode::None;
+        }
+        KeyCode::Backspace => {
+            app.edit_input_buffer.pop();
+        }
+        KeyCode::Char(c) => {
+            app.edit_input_buffer.push(c);
+        }
+        _ => {}
+    }
 }
