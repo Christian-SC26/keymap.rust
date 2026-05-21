@@ -59,9 +59,47 @@ pub struct App {
     pub config_path: Option<String>,
     pub bulk_highlight: bool,
     pub keyboard_layout: Vec<Vec<KeyDef>>,
+    pub filtered_indices: Vec<usize>,
 }
 
 impl App {
+    fn load_system_shortcuts(home: &str) -> Vec<Shortcut> {
+        #[derive(Deserialize)]
+        struct SystemShortcut {
+            mods: Vec<String>,
+            key: String,
+            desc: String,
+        }
+
+        let sys_paths = [
+            "system_shortcuts.json".to_string(),
+            "src/system_shortcuts.json".to_string(),
+            format!("{}/.config/karabiner/system_shortcuts.json", home),
+        ];
+
+        let mut sys_shortcuts = Vec::new();
+        for sys_path in sys_paths {
+            if let Ok(c) = fs::read_to_string(&sys_path) {
+                if let Ok(sys_items) = serde_json::from_str::<Vec<SystemShortcut>>(&c) {
+                    for sys_item in sys_items {
+                        let mut keys = sys_item.mods.clone();
+                        keys.push(sys_item.key.clone());
+                        sys_shortcuts.push(Shortcut {
+                            source: "system sy".to_string(),
+                            rules: String::new(),
+                            keys,
+                            action: "-".to_string(),
+                            desc: sys_item.desc.clone(),
+                            search_text: String::new(),
+                        });
+                    }
+                    break;
+                }
+            }
+        }
+        sys_shortcuts
+    }
+
     pub fn new(custom_path: Option<String>) -> Result<App, io::Error> {
         let home = std::env::var("HOME").map_err(|_| {
             io::Error::new(io::ErrorKind::NotFound, "HOME environment variable not set")
@@ -77,38 +115,8 @@ impl App {
         let mut items: Vec<Shortcut> = serde_json::from_str(&content)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        #[derive(Deserialize)]
-        struct SystemShortcut {
-            mods: Vec<String>,
-            key: String,
-            desc: String,
-        }
-
-        let sys_paths = [
-            "system_shortcuts.json".to_string(),
-            "src/system_shortcuts.json".to_string(),
-            format!("{}/.config/karabiner/system_shortcuts.json", home),
-        ];
-
-        for sys_path in sys_paths {
-            if let Ok(c) = fs::read_to_string(&sys_path) {
-                if let Ok(sys_items) = serde_json::from_str::<Vec<SystemShortcut>>(&c) {
-                    for sys_item in sys_items {
-                        let mut keys = sys_item.mods.clone();
-                        keys.push(sys_item.key.clone());
-                        items.push(Shortcut {
-                            source: "system sy".to_string(),
-                            rules: String::new(),
-                            keys,
-                            action: "-".to_string(),
-                            desc: sys_item.desc.clone(),
-                            search_text: String::new(),
-                        });
-                    }
-                    break;
-                }
-            }
-        }
+        let sys_shortcuts = Self::load_system_shortcuts(&home);
+        items.extend(sys_shortcuts);
 
         for item in &mut items {
             item.search_text = format!("{} {} {} {}", item.action, item.desc, item.keys.join(" "), item.rules).to_lowercase();
@@ -152,7 +160,9 @@ impl App {
             config_path: Some(path),
             bulk_highlight: false,
             keyboard_layout,
+            filtered_indices: Vec::new(),
         };
+        app.update_filtered_cache();
         app.state.select(Some(0));
         Ok(app)
     }
@@ -163,45 +173,16 @@ impl App {
             let mut items: Vec<Shortcut> = serde_json::from_str(&content)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-            #[derive(Deserialize)]
-            struct SystemShortcut {
-                mods: Vec<String>,
-                key: String,
-                desc: String,
-            }
-
             let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            let sys_paths = [
-                "system_shortcuts.json".to_string(),
-                "src/system_shortcuts.json".to_string(),
-                format!("{}/.config/karabiner/system_shortcuts.json", home),
-            ];
-
-            for sys_path in sys_paths {
-                if let Ok(c) = fs::read_to_string(&sys_path) {
-                    if let Ok(sys_items) = serde_json::from_str::<Vec<SystemShortcut>>(&c) {
-                        for sys_item in sys_items {
-                            let mut keys = sys_item.mods.clone();
-                            keys.push(sys_item.key.clone());
-                            items.push(Shortcut {
-                                source: "system sy".to_string(),
-                                rules: String::new(),
-                                keys,
-                                action: "-".to_string(),
-                                desc: sys_item.desc.clone(),
-                                search_text: String::new(),
-                            });
-                        }
-                        break;
-                    }
-                }
-            }
+            let sys_shortcuts = Self::load_system_shortcuts(&home);
+            items.extend(sys_shortcuts);
 
             for item in &mut items {
                 item.search_text = format!("{} {} {} {}", item.action, item.desc, item.keys.join(" "), item.rules).to_lowercase();
             }
 
             self.items = items;
+            self.update_filtered_cache();
             if self.state.selected().is_none() && !self.items.is_empty() {
                 self.state.select(Some(0));
             }
@@ -278,17 +259,18 @@ impl App {
         self.state.select(Some(i));
     }
 
-    pub fn filtered_items(&self) -> Vec<&Shortcut> {
+    pub fn update_filtered_cache(&mut self) {
         let query = self.search_query.to_lowercase();
         let app_q = self.app_filter_query.to_lowercase();
         let filter_str = self.filter.as_str();
 
-        self.items
+        self.filtered_indices = self.items
             .iter()
-            .filter(|i| {
+            .enumerate()
+            .filter_map(|(idx, i)| {
                 // Core Source Filter
                 if self.filter != Filter::All && !i.source.contains(filter_str) {
-                    return false;
+                    return None;
                 }
 
                 // Sub-filter for App (only if in Karabiner filter)
@@ -296,7 +278,7 @@ impl App {
                     let enable_tag = format!("{}_e", app_q);
                     let disable_tag = format!("{}_d", app_q);
                     if !i.rules.contains(&enable_tag) && !i.rules.contains(&disable_tag) {
-                        return false;
+                        return None;
                     }
                 }
                 
@@ -305,7 +287,7 @@ impl App {
                     if let Some(target_char) = self.key_filter {
                         let target_str = target_char.to_string().to_lowercase();
                         if !i.keys.iter().any(|k| k.to_lowercase() == target_str) {
-                            return false;
+                            return None;
                         }
                     }
                 }
@@ -330,18 +312,22 @@ impl App {
                     }
                     
                     if shortcut_mods != self.active_modifiers {
-                        return false;
+                        return None;
                     }
                 }
 
                 // Text search filter
-                if query.is_empty() {
-                    return true;
+                if !query.is_empty() && !i.search_text.contains(&query) {
+                    return None;
                 }
 
-                i.search_text.contains(&query)
+                Some(idx)
             })
-            .collect()
+            .collect();
+    }
+
+    pub fn filtered_items(&self) -> Vec<&Shortcut> {
+        self.filtered_indices.iter().map(|&idx| &self.items[idx]).collect()
     }
 }
 
@@ -379,7 +365,9 @@ mod tests {
             config_path: None,
             bulk_highlight: false,
             keyboard_layout: vec![],
+            filtered_indices: vec![],
         };
+        app.update_filtered_cache();
         app.state.select(Some(0));
 
         app.next();
@@ -395,12 +383,12 @@ mod tests {
 
     #[test]
     fn test_filtering() {
-        let app = App {
+        let mut app = App {
             state: TableState::default(),
             items: vec![
-                mock_shortcut("sk"),
-                mock_shortcut("ke"),
-                mock_shortcut("sy"),
+                mock_shortcut("skhd"),
+                mock_shortcut("karabiner"),
+                mock_shortcut("system"),
             ],
             filter: Filter::Skhd,
             search_query: String::new(),
@@ -409,15 +397,61 @@ mod tests {
             is_searching: false,
             is_filtering_app: false,
             is_filtering_key: false,
+            is_filtering_modifier: false,
+            active_modifiers: std::collections::HashSet::new(),
             show_help: false,
             show_overview: false,
             config_path: None,
             bulk_highlight: false,
             keyboard_layout: vec![],
+            filtered_indices: vec![],
         };
+        app.update_filtered_cache();
 
         let filtered = app.filtered_items();
         assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].source, "sk");
+        assert_eq!(filtered[0].source, "skhd");
+    }
+
+    #[test]
+    fn test_modifier_filtering() {
+        let mut shortcut_hyper = mock_shortcut("skhd");
+        shortcut_hyper.keys = vec!["cmd".into(), "opt".into(), "ctrl".into(), "shift".into(), "a".into()];
+        
+        let mut shortcut_meh = mock_shortcut("karabiner");
+        shortcut_meh.keys = vec!["opt".into(), "ctrl".into(), "shift".into(), "b".into()];
+
+        let mut app = App {
+            state: TableState::default(),
+            items: vec![shortcut_hyper, shortcut_meh],
+            filter: Filter::All,
+            search_query: String::new(),
+            app_filter_query: String::new(),
+            key_filter: None,
+            is_searching: false,
+            is_filtering_app: false,
+            is_filtering_key: false,
+            is_filtering_modifier: true,
+            active_modifiers: ["cmd".to_string(), "opt".to_string(), "ctrl".to_string(), "shift".to_string()].into_iter().collect(),
+            show_help: false,
+            show_overview: false,
+            config_path: None,
+            bulk_highlight: false,
+            keyboard_layout: vec![],
+            filtered_indices: vec![],
+        };
+        app.update_filtered_cache();
+        
+        let filtered = app.filtered_items();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].source, "skhd");
+
+        // Switch to Meh modifiers
+        app.active_modifiers = ["opt".to_string(), "ctrl".to_string(), "shift".to_string()].into_iter().collect();
+        app.update_filtered_cache();
+
+        let filtered_meh = app.filtered_items();
+        assert_eq!(filtered_meh.len(), 1);
+        assert_eq!(filtered_meh[0].source, "karabiner");
     }
 }

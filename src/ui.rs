@@ -1,13 +1,19 @@
 use crate::app::App;
 use crate::app::Filter;
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect, Margin},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table},
+    widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table, Scrollbar, ScrollbarOrientation, ScrollbarState},
     Frame,
 };
 use std::collections::HashSet;
+
+const SPECIAL_KEYS: &[&str] = &[
+    "esc", "enter", "return", "space", "tab", "backspace", "del", "pgup", "pgdn", "home", "end",
+    "fn", "caps", "lshift", "rshift", "lctrl", "rctrl", "lopt", "ropt", "lcmd", "rcmd", "up",
+    "down", "left", "right"
+];
 
 // --- Вспомогательные функции ---
 fn wrap_text(text: &str, width: usize) -> String {
@@ -114,107 +120,181 @@ fn is_key_matched(ak_lower: &str, key_id: &str, display: &str) -> bool {
 // --- Наша новая клавиатура удалена, загружается из JSON ---
 
 pub fn ui(f: &mut Frame, app: &mut App) {
+    let area = f.area();
+    if area.width < 100 && app.show_overview {
+        let warning_text = Line::from(vec![
+            Span::styled("⚠️  Terminal too narrow! ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled("Overview hidden. Expand terminal window to width >= 100.", Style::default().fg(Color::DarkGray)),
+        ]);
+        f.render_widget(Paragraph::new(warning_text), area);
+        return;
+    }
+
     if app.show_overview {
         render_overview(f, app);
         return;
     }
 
-    let area = f.area();
-    let rects = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1), Constraint::Length(15), Constraint::Min(10), Constraint::Length(1), Constraint::Length(1),
-        ])
-        .split(area);
+    let show_keyboard = area.width >= 100;
 
-    let filtered = app.filtered_items();
-    let selected_idx = app.state.selected().unwrap_or(0);
-    
-    let (active_keys, active_source) = if app.is_filtering_modifier {
-        let mut all_keys: Vec<String> = filtered.iter().flat_map(|i| i.keys.iter().map(|k| k.to_lowercase())).collect();
-        for m in &app.active_modifiers {
-            all_keys.push(m.clone());
-        }
-        (all_keys, "mod_mode")
-    } else if app.bulk_highlight {
-        let all_keys: Vec<String> = filtered.iter().flat_map(|i| i.keys.iter().map(|k| k.to_lowercase())).collect();
-        (all_keys, app.filter.as_str())
-    } else if app.is_filtering_key && app.key_filter.is_some() {
-        (vec![app.key_filter.unwrap().to_string().to_lowercase()], "key_mode")
-    } else if let Some(item) = filtered.get(selected_idx) {
-        (item.keys.iter().map(|k| k.to_lowercase()).collect(), item.source.as_str())
+    let (rects, keyboard_area, table_area, footer_area, info_area) = if show_keyboard {
+        let r = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(1),     // spacer / header
+                Constraint::Length(15),    // keyboard layout
+                Constraint::Min(10),       // shortcuts table
+                Constraint::Length(1),     // footer
+                Constraint::Length(1),     // info bar
+            ])
+            .split(area);
+        (r.clone(), Some(r[1]), r[2], r[3], r[4])
     } else {
-        (vec![], "")
+        let r = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(1),     // spacer / header with warning
+                Constraint::Min(10),       // shortcuts table
+                Constraint::Length(1),     // footer
+                Constraint::Length(1),     // info bar
+            ])
+            .split(area);
+        (r.clone(), None, r[1], r[2], r[3])
     };
 
-    draw_keyboard(f, rects[1], &active_keys, &[], active_source, app);
+    if !show_keyboard && area.width < 100 {
+        let warning_text = Line::from(vec![
+            Span::styled("⚠️  Terminal too narrow! ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled("Keyboard layout hidden. Expand terminal window to width >= 100.", Style::default().fg(Color::DarkGray)),
+        ]);
+        f.render_widget(Paragraph::new(warning_text), rects[0]);
+    }
 
-    // Вычисление доступной ширины для колонок
-    let total_width = area.width as usize;
-    let fixed_width = 12 + 18 + 12 + 2; // Source (12) + Trigger (18) + Spacings (3*4) + Borders (2)
-    let action_width = (total_width as f32 * 0.30) as usize; // 30% для Action
-    let desc_column_width = total_width.saturating_sub(fixed_width + action_width).max(20);
+    let filtered_len;
+    let selected_idx = app.state.selected().unwrap_or(0);
 
-    let selected_style = Style::default().add_modifier(Modifier::REVERSED);
-    let rows: Vec<Row> = filtered
-        .iter()
-        .enumerate()
-        .map(|(i, item)| {
-            let is_selected = Some(i) == app.state.selected();
-            
-            // Врапим текст для ВСЕХ строк
-            let desc_text = wrap_text(&item.desc, desc_column_width);
-            let action_text = wrap_text(&item.action, action_width);
-            
-            // Считаем максимальное количество строк между Action и Description
-            let desc_lines = desc_text.lines().count();
-            let action_lines = action_text.lines().count();
-            let mut height = desc_lines.max(action_lines).max(1) as u16;
-            
-            if is_selected {
-                height = height.max(2); // Даем чуть больше визуального пространства выделенной строке
+    {
+        let filtered = app.filtered_items();
+        filtered_len = filtered.len();
+        
+        let (active_keys, active_source) = if app.is_filtering_modifier {
+            let mut all_keys: Vec<String> = filtered.iter().flat_map(|i| i.keys.iter().map(|k| k.to_lowercase())).collect();
+            for m in &app.active_modifiers {
+                all_keys.push(m.clone());
             }
+            (all_keys, "chord_mode")
+        } else if app.bulk_highlight {
+            let all_keys: Vec<String> = filtered.iter().flat_map(|i| i.keys.iter().map(|k| k.to_lowercase())).collect();
+            (all_keys, app.filter.as_str())
+        } else if app.is_filtering_key && app.key_filter.is_some() {
+            (vec![app.key_filter.unwrap().to_string().to_lowercase()], "key_mode")
+        } else if let Some(item) = filtered.get(selected_idx) {
+            (item.keys.iter().map(|k| k.to_lowercase()).collect(), item.source.as_str())
+        } else {
+            (vec![], "")
+        };
 
-            let display_source = item.source.split_whitespace()
-                .filter(|tag| *tag == "karabiner" || *tag == "skhd" || *tag == "system")
-                .collect::<Vec<_>>();
-            let mut unique_sources = display_source.clone(); 
-            unique_sources.sort(); 
-            unique_sources.dedup();
-            let source_str = unique_sources.join(", ");
+        if let Some(kbd_area) = keyboard_area {
+            draw_keyboard(f, kbd_area, &active_keys, &[], active_source, app);
+        }
 
-            let trigger_str = if item.keys.is_empty() { "-".to_string() } else { item.keys.join(" + ") };
+        // Вычисление доступной ширины для колонок
+        let total_width = area.width as usize;
+        let fixed_width = 12 + 18 + 12 + 2; // Source (12) + Trigger (18) + Spacings (3*4) + Borders (2)
+        let action_width = (total_width as f32 * 0.30) as usize; // 30% для Action
+        let desc_column_width = total_width.saturating_sub(fixed_width + action_width).max(20);
 
-            Row::new(vec![
-                Cell::from(source_str),
-                Cell::from(trigger_str),
-                Cell::from(Text::from(action_text)),
-                Cell::from(Text::from(desc_text)),
-            ])
-            .height(height)
-        })
-        .collect();
+        let selected_style = Style::default().add_modifier(Modifier::REVERSED);
+        let rows: Vec<Row> = filtered
+            .iter()
+            .enumerate()
+            .map(|(i, item)| {
+                let is_selected = Some(i) == app.state.selected();
+                
+                // Врапим текст для ВСЕХ строк
+                let desc_text = wrap_text(&item.desc, desc_column_width);
+                let action_text = wrap_text(&item.action, action_width);
+                
+                // Считаем максимальное количество строк между Action и Description
+                let desc_lines = desc_text.lines().count();
+                let action_lines = action_text.lines().count();
+                let mut height = desc_lines.max(action_lines).max(1) as u16;
+                
+                if is_selected {
+                    height = height.max(2); // Даем чуть больше визуального пространства выделенной строке
+                }
 
-    let table = Table::new(rows, [Constraint::Length(12), Constraint::Length(18), Constraint::Percentage(30), Constraint::Min(40)])
-        .column_spacing(4)
-        .header(Row::new(vec!["Source", "Trigger", "Action", "Description"]).style(Style::default().fg(Color::DarkGray)))
-        .block(Block::default().borders(Borders::ALL).title(format!(" Shortcuts (Total: {}) ", filtered.len())))
-        .row_highlight_style(selected_style);
+                let display_source = item.source.split_whitespace()
+                    .filter(|tag| *tag == "karabiner" || *tag == "skhd" || *tag == "system")
+                    .collect::<Vec<_>>();
+                let mut unique_sources = display_source.clone(); 
+                unique_sources.sort(); 
+                unique_sources.dedup();
+                let source_str = unique_sources.join(", ");
 
-    f.render_stateful_widget(table, rects[2], &mut app.state);
+                let trigger_str = if item.keys.is_empty() { "-".to_string() } else { item.keys.join(" + ") };
+
+                Row::new(vec![
+                    Cell::from(source_str),
+                    Cell::from(trigger_str),
+                    Cell::from(Text::from(action_text)),
+                    Cell::from(Text::from(desc_text)),
+                ])
+                .height(height)
+            })
+            .collect();
+
+        let table_border_style = if app.is_searching {
+            Style::default().fg(Color::Yellow)
+        } else if app.is_filtering_app {
+            Style::default().fg(Color::Blue)
+        } else if app.is_filtering_key {
+            Style::default().fg(Color::Green)
+        } else if app.is_filtering_modifier {
+            Style::default().fg(Color::Red)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+
+        let table = Table::new(rows, [Constraint::Length(12), Constraint::Length(18), Constraint::Percentage(30), Constraint::Min(40)])
+            .column_spacing(4)
+            .header(Row::new(vec!["Source", "Trigger", "Action", "Description"]).style(Style::default().fg(Color::DarkGray)))
+            .block(Block::default().borders(Borders::ALL).border_style(table_border_style).title(format!(" Shortcuts (Total: {}) ", filtered_len)))
+            .row_highlight_style(selected_style);
+
+        f.render_stateful_widget(table, table_area, &mut app.state);
+    }
+
+    let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+        .begin_symbol(Some("▲"))
+        .end_symbol(Some("▼"))
+        .track_symbol(Some("░"))
+        .thumb_symbol("┃");
+
+    let mut scrollbar_state = ScrollbarState::new(filtered_len)
+        .position(selected_idx);
+
+    f.render_stateful_widget(
+        scrollbar,
+        table_area.inner(Margin {
+            vertical: 1,
+            horizontal: 0,
+        }),
+        &mut scrollbar_state,
+    );
 
     let footer_text = Line::from(vec![
         Span::styled("[/]", Style::default().fg(Color::Cyan)), Span::raw(" search  |  "),
         Span::styled("[space]", Style::default().fg(Color::Cyan)), Span::raw(" key-mode  |  "),
-        Span::styled("[m]", Style::default().fg(Color::Cyan)), Span::raw(" mod-mode  |  "),
+        Span::styled("[m]", Style::default().fg(Color::Cyan)), Span::raw(" chord-mode  |  "),
         Span::styled("[?]", Style::default().fg(Color::Cyan)), Span::raw(" help"),
     ]);
-    f.render_widget(Paragraph::new(footer_text), rects[3]);
+    f.render_widget(Paragraph::new(footer_text), footer_area);
 
     let search_style = if app.is_searching { Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) };
     let app_filter_style = if app.is_filtering_app { Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) };
     let key_mode_style = if app.is_filtering_key { Style::default().fg(Color::Green).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) };
-    let mod_mode_style = if app.is_filtering_modifier { Style::default().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) };
+    let chord_mode_style = if app.is_filtering_modifier { Style::default().fg(Color::Red).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::DarkGray) };
 
     let mut info_line = vec![Span::styled(format!(" Search: {}", app.search_query), search_style)];
     if app.filter == Filter::Karabiner {
@@ -226,11 +306,11 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     
     let mut mods_list: Vec<String> = app.active_modifiers.iter().cloned().collect();
     mods_list.sort();
-    let mods_display = if mods_list.is_empty() { "None (c:cmd, o:opt, t:ctrl, s:shift)".to_string() } else { mods_list.join("+") };
+    let mods_display = if mods_list.is_empty() { "None (c:cmd, o:opt, t:ctrl, s:shift, h:hyper, n:meh)".to_string() } else { mods_list.join("+") };
     info_line.push(Span::raw("  |  "));
-    info_line.push(Span::styled(format!(" Mod Mode (m): {}", mods_display), mod_mode_style));
+    info_line.push(Span::styled(format!(" Chord Mode (m): {}", mods_display), chord_mode_style));
 
-    f.render_widget(Paragraph::new(Line::from(info_line)), rects[4]);
+    f.render_widget(Paragraph::new(Line::from(info_line)), info_area);
 
     if app.show_help {
         let area = centered_rect(60, 75, f.area());
@@ -242,7 +322,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
             Line::from(vec![Span::styled(" [?]      ", Style::default().fg(Color::Cyan)), Span::raw("Toggle Help Menu")]),
             Line::from(vec![Span::styled(" [/]      ", Style::default().fg(Color::Cyan)), Span::raw("Enter Search Mode")]),
             Line::from(vec![Span::styled(" [space]  ", Style::default().fg(Color::Cyan)), Span::raw("Single Key Filter Mode")]),
-            Line::from(vec![Span::styled(" [m]      ", Style::default().fg(Color::Cyan)), Span::raw("Modifier Filter Mode")]),
+            Line::from(vec![Span::styled(" [m]      ", Style::default().fg(Color::Cyan)), Span::raw("Chord Filter Mode (c/o/t/s, h:hyper, n:meh)")]),
             Line::from(vec![Span::styled(" [o]      ", Style::default().fg(Color::Cyan)), Span::raw("Toggle Multi-Keyboard Overview")]),
             Line::from(""),
             Line::from(vec![Span::styled(" [p]      ", Style::default().fg(Color::Cyan)), Span::raw("Parse Configs")]),
@@ -274,7 +354,7 @@ fn get_free_keys(app: &App) -> Vec<String> {
     let mut free = Vec::new();
     for row in &app.keyboard_layout {
         for keydef in row {
-            let is_special = ["esc", "enter", "return", "space", "tab", "backspace", "del", "pgup", "pgdn", "home", "end", "fn", "caps", "lshift", "rshift", "lctrl", "rctrl", "lopt", "ropt", "lcmd", "rcmd", "up", "down", "left", "right"].contains(&keydef.id.as_str());
+            let is_special = SPECIAL_KEYS.contains(&keydef.id.as_str());
             if is_special { continue; }
 
             let is_used = all_keys.iter().any(|k| is_key_matched(k, &keydef.id, &keydef.display)) || 
@@ -324,7 +404,7 @@ fn draw_keyboard(f: &mut Frame, area: Rect, active_keys: &[String], free_keys: &
         s if s.contains("xc") => Color::Green,
         s if s.contains("system") || s.contains("sy") => Color::Yellow,
         "key_mode" => Color::LightBlue,
-        "mod_mode" => Color::Red,
+        "chord_mode" => Color::Red,
         _ => Color::White,
     };
     let free_color = Color::Rgb(0, 255, 127);

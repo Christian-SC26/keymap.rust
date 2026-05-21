@@ -46,6 +46,7 @@ fn main() -> io::Result<()> {
 
 fn run_app(terminal: &mut DefaultTerminal, app: &mut App) -> io::Result<()> {
     loop {
+        app.update_filtered_cache();
         terminal.draw(|f| ui(f, app))?;
 
         if let Event::Key(key) = event::read()? {
@@ -122,6 +123,40 @@ fn handle_modifier_filter_input(app: &mut App, key: event::KeyEvent) -> io::Resu
                 app.state.select(Some(0));
                 app.bulk_highlight = true;
             }
+            Ok(false)
+        }
+        KeyCode::Char('h') => {
+            let hyper_mods = ["cmd", "opt", "ctrl", "shift"];
+            let has_all = hyper_mods.iter().all(|m| app.active_modifiers.contains(*m));
+            if has_all {
+                for m in &hyper_mods {
+                    app.active_modifiers.remove(*m);
+                }
+            } else {
+                for m in &hyper_mods {
+                    app.active_modifiers.insert(m.to_string());
+                }
+            }
+            app.state.select(Some(0));
+            app.bulk_highlight = true;
+            Ok(false)
+        }
+        KeyCode::Char('n') => {
+            let meh_mods = ["opt", "ctrl", "shift"];
+            let has_all_meh = meh_mods.iter().all(|m| app.active_modifiers.contains(*m));
+            let has_cmd = app.active_modifiers.contains("cmd");
+            if has_all_meh && !has_cmd {
+                for m in &meh_mods {
+                    app.active_modifiers.remove(*m);
+                }
+            } else {
+                for m in &meh_mods {
+                    app.active_modifiers.insert(m.to_string());
+                }
+                app.active_modifiers.remove("cmd");
+            }
+            app.state.select(Some(0));
+            app.bulk_highlight = true;
             Ok(false)
         }
         _ => handle_navigation_input(app, key),

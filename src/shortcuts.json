@@ -1,79 +1,53 @@
 [
   {
-    "source": "karabiner",
+    "source": "skhd",
     "keys": [
       "cmd",
-      "tab"
-    ],
-    "action": "cmd + tab",
-    "desc": "System: cmd+tab j/k to navigate"
-  },
-  {
-    "source": "karabiner | skhd sk",
-    "rules": "xc_e",
-    "keys": [
-      "hyper",
-      "z"
-    ],
-    "action": "cmd + ctrl + shift + left",
-    "desc": "Xcode: Hyper Q/W Switch Tabs A/S history navigate Z/X comments folding D/F Canvas/Refresh | --toggle zoom-parent"
-  },
-  {
-    "source": "karabiner",
-    "rules": "gh_d",
-    "keys": [
       "ctrl",
-      "j"
-    ],
-    "action": "return_or_enter",
-    "desc": "System: ctrl j - enter, cmd h - opt del"
-  },
-  {
-    "source": "karabiner",
-    "rules": "xc_d gh_d",
-    "keys": [
-      "ctrl",
-      "n"
-    ],
-    "action": "down",
-    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "skhd sk",
-    "keys": [
-      "hyper",
-      "2"
+      ";"
     ],
     "action": "-",
-    "desc": "--focus 2"
+    "desc": "Movist Pro: --grid 4:4:2:1:2:2 | *            :: pass-through (~)"
+  },
+  {
+    "source": "skhd",
+    "keys": [
+      "cmd",
+      "ctrl",
+      ","
+    ],
+    "action": "-",
+    "desc": "Movist Pro: --grid 6:6:4:4:2:2 | Остальные: --grid 2:2:1:1:1:1"
   },
   {
     "source": "karabiner",
     "rules": "xc_d gh_d",
     "keys": [
       "ctrl",
-      "u"
+      "k (",
+      "caps)"
     ],
-    "action": "cmd + backspace",
+    "action": "cmd + shift + right backspace",
     "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "lshift"
-    ],
-    "action": "lshift | lshift | lshift",
-    "desc": "Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9 | Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9 | Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9"
   },
   {
     "source": "karabiner",
     "rules": "xc_d gh_d",
     "keys": [
       "ctrl",
-      "b"
+      "s"
     ],
-    "action": "left",
+    "action": "cmd + f",
     "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "ctrl",
+      "q"
+    ],
+    "action": "hyper + t",
+    "desc": "Fluid Voice: Dictation - fn dot, ctrl q"
   },
   {
     "source": "skhd sk",
@@ -87,117 +61,13 @@
   },
   {
     "source": "karabiner",
-    "rules": "xc_d gh_d | xc_e",
-    "keys": [
-      "opt",
-      "d"
-    ],
-    "action": "opt + del | opt + shift + del",
-    "desc": "Xcode: Emacs extension | System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "karabiner",
-    "rules": "xc_d gh_d | xc_e",
-    "keys": [
-      "opt",
-      "b"
-    ],
-    "action": "opt + left | opt + left",
-    "desc": "Xcode: Emacs extension | System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "karabiner",
-    "rules": "xc_e",
-    "keys": [
-      "hyper",
-      "x"
-    ],
-    "action": "cmd + ctrl + shift + right",
-    "desc": "Xcode: Hyper Q/W Switch Tabs A/S history navigate Z/X comments folding D/F Canvas/Refresh"
-  },
-  {
-    "source": "skhd sk",
-    "keys": [
-      "hyper",
-      "b"
-    ],
-    "action": "-",
-    "desc": "--balance"
-  },
-  {
-    "source": "skhd",
-    "keys": [
-      "cmd",
-      "ctrl",
-      ","
-    ],
-    "action": "-",
-    "desc": "Movist Pro: --grid 6:6:4:4:2:2 | Остальные: --grid 2:2:1:1:1:1"
-  },
-  {
-    "source": "skhd sk",
-    "keys": [
-      "hyper",
-      "o"
-    ],
-    "action": "-",
-    "desc": "--toggle zoom-fullscreen"
-  },
-  {
-    "source": "karabiner",
-    "rules": "xc_d gh_d",
-    "keys": [
-      "opt",
-      "h"
-    ],
-    "action": "opt + backspace",
-    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "skhd sk",
-    "keys": [
-      "opt",
-      "shift",
-      "s"
-    ],
-    "action": "-",
-    "desc": "--toggle sticky"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "rcmd"
-    ],
-    "action": "lcmd + lopt + lctrl + lshift | rcmd",
-    "desc": "System: Toggle Hyper/Command on Right Command | System: Toggle Hyper/Command on Right Command"
-  },
-  {
-    "source": "karabiner",
     "rules": "xc_d gh_d",
     "keys": [
       "ctrl",
-      "w"
+      "h (",
+      "caps)"
     ],
-    "action": "cmd + x",
-    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "ctrl",
-      "9"
-    ],
-    "action": "-",
-    "desc": "Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9 | System: Ctrl+9 → Russian, Ctrl+8 → English"
-  },
-  {
-    "source": "karabiner",
-    "rules": "xc_d gh_d",
-    "keys": [
-      "ctrl",
-      "k"
-    ],
-    "action": "cmd + shift + right backspace",
+    "action": "backspace",
     "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
   },
   {
@@ -205,9 +75,10 @@
     "rules": "xc_d gh_d",
     "keys": [
       "ctrl",
-      "r"
+      "b (",
+      "shift / caps)"
     ],
-    "action": "cmd + shift + g",
+    "action": "left",
     "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
   },
   {
@@ -222,60 +93,152 @@
   },
   {
     "source": "karabiner",
+    "rules": "gh_d",
     "keys": [
       "ctrl",
-      "q"
+      "j"
     ],
-    "action": "hyper + t",
-    "desc": "Fluid Voice: Dictation - fn dot, ctrl q"
-  },
-  {
-    "source": "karabiner",
-    "rules": "xc_e",
-    "keys": [
-      "i"
-    ],
-    "action": "lcmd + lctrl + lshift + return_or_enter",
-    "desc": "Xcode: Chord: Ctrl-W -> I"
+    "action": "return_or_enter",
+    "desc": "System: ctrl j - enter, cmd h - opt del"
   },
   {
     "source": "skhd",
     "keys": [
       "cmd",
       "ctrl",
-      "o"
+      "m"
     ],
     "action": "-",
-    "desc": "Movist Pro: --grid 6:6:4:0:2:2 | Остальные: --grid 2:2:1:0:1:1"
+    "desc": "Movist Pro: --grid 6:6:2:4:2:2 | Остальные: --grid 2:2:0:1:2:1"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "opt",
+      "shift",
+      "s"
+    ],
+    "action": "-",
+    "desc": "--toggle sticky"
   },
   {
     "source": "karabiner",
-    "rules": "xc_e",
     "keys": [
-      "hyper",
-      "d"
+      "cmd",
+      "ˋ"
     ],
-    "action": "cmd + opt + p",
-    "desc": "Xcode: Hyper Q/W Switch Tabs A/S history navigate Z/X comments folding D/F Canvas/Refresh"
+    "action": "lshift + ˋ",
+    "desc": "System: Tilde key: Plain = Window Switcher, Cmd+Tilde = ~, Cmd+Shift+Tilde = `"
   },
   {
     "source": "karabiner",
     "rules": "xc_d gh_d | xc_e",
     "keys": [
-      "ctrl",
-      "a"
+      "opt",
+      "b (",
+      "shift / caps)"
     ],
-    "action": "cmd + left | cmd + left",
+    "action": "opt + left | opt + left",
     "desc": "Xcode: Emacs extension | System: Emacs (Disabled in: Xcode and Ghostty)"
   },
   {
     "source": "karabiner",
+    "rules": "xc_d gh_d",
     "keys": [
-      "hyper",
+      "ctrl",
+      "w (",
+      "any)"
+    ],
+    "action": "cmd + x",
+    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_d gh_d",
+    "keys": [
+      "ctrl",
       "r"
     ],
+    "action": "cmd + shift + g",
+    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "fn",
+      "."
+    ],
+    "action": "hyper + t",
+    "desc": "Fluid Voice: Dictation - fn dot, ctrl q"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_d gh_d | xc_e",
+    "keys": [
+      "opt",
+      ","
+    ],
+    "action": "cmd + up | cmd + up",
+    "desc": "Xcode: Emacs extension | System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "opt",
+      "shift",
+      "6"
+    ],
     "action": "-",
-    "desc": "Yabai: hyper R restart"
+    "desc": "--toggle obs_pad"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_d gh_d",
+    "keys": [
+      "ctrl",
+      "p (",
+      "shift / caps)"
+    ],
+    "action": "up",
+    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "skhd",
+    "keys": [
+      "cmd",
+      "ctrl",
+      "u"
+    ],
+    "action": "-",
+    "desc": "Movist Pro: --grid 6:6:0:0:2:2 | Остальные: --grid 2:2:0:0:1:1"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_d gh_d",
+    "keys": [
+      "ctrl",
+      "y"
+    ],
+    "action": "cmd + v",
+    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "hyper",
+      "b"
+    ],
+    "action": "-",
+    "desc": "--balance"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "cmd",
+      "k"
+    ],
+    "action": "cmd + right",
+    "desc": "System: cmd+tab j/k to navigate"
   },
   {
     "source": "karabiner",
@@ -288,35 +251,76 @@
     "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
   },
   {
+    "source": "skhd sk",
+    "keys": [
+      "hyper",
+      "7"
+    ],
+    "action": "-",
+    "desc": "--focus 7"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [],
+    "action": "-",
+    "desc": ": chord_mode"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_e",
+    "keys": [
+      "i (",
+      "any)"
+    ],
+    "action": "lcmd + lctrl + lshift + return_or_enter",
+    "desc": "Xcode: Chord: Ctrl-W -> I"
+  },
+  {
     "source": "karabiner",
     "keys": [
-      "cmd",
-      "opt",
-      "ctrl",
+      "caps (",
+      "any)"
+    ],
+    "action": "lctrl / esc (tapped) | lctrl / esc (tapped)",
+    "desc": "System: Caps Lock to Control/Escape | Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "s (",
+      "any)"
+    ],
+    "action": "-",
+    "desc": "Hydra Actions (g=Ghostty, s=Safari, x=Xcode, Esc/q=Quit)"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "hyper",
       "o"
     ],
     "action": "-",
-    "desc": "Hydra Mode (cmd opt ctrl O)"
+    "desc": "--toggle zoom-fullscreen"
   },
   {
-    "source": "karabiner",
-    "rules": "xc_d gh_d | xc_e",
-    "keys": [
-      "opt",
-      "."
-    ],
-    "action": "cmd + down | cmd + down",
-    "desc": "Xcode: Emacs extension | System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "karabiner",
+    "source": "skhd",
     "keys": [
       "cmd",
-      "shift",
-      "ˋ"
+      "ctrl",
+      "l"
     ],
-    "action": "ˋ",
-    "desc": "System: Tilde key: Plain = Window Switcher, Cmd+Tilde = ~, Cmd+Shift+Tilde = `"
+    "action": "-",
+    "desc": "Movist Pro: --grid 6:6:4:4:2:2 | *            :: pass-through (~)"
+  },
+  {
+    "source": "skhd",
+    "keys": [
+      "cmd",
+      "ctrl",
+      "n"
+    ],
+    "action": "-",
+    "desc": "Movist Pro: --grid 6:6:0:4:2:2 | Остальные: --grid 2:2:0:1:1:1"
   },
   {
     "source": "skhd sk",
@@ -328,68 +332,170 @@
     "desc": "--focus 1"
   },
   {
-    "source": "skhd",
-    "keys": [
-      "cmd",
-      "ctrl",
-      ";"
-    ],
-    "action": "-",
-    "desc": "Movist Pro: --grid 4:4:2:1:2:2 | Остальные: pass-through (~)"
-  },
-  {
     "source": "karabiner",
-    "rules": "xc_d gh_d",
+    "rules": "xc_e",
     "keys": [
       "ctrl",
-      "h"
+      ", (",
+      "any)"
     ],
-    "action": "backspace",
-    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "ˋ"
-    ],
-    "action": "lcmd + ˋ",
-    "desc": "System: Tilde key: Plain = Window Switcher, Cmd+Tilde = ~, Cmd+Shift+Tilde = `"
+    "action": "right space - lshift + . space",
+    "desc": "Xcode: Shortcuts: Ctrl+, to 'right_arrow -> ' and Ctrl+[ to ' { Enter'"
   },
   {
     "source": "karabiner",
     "rules": "xc_e",
     "keys": [
       "lctrl",
-      "w"
+      "w (",
+      "caps)"
     ],
     "action": "lctrl + w",
     "desc": "Xcode: Chord: Ctrl-W -> I"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "hyper",
+      "3"
+    ],
+    "action": "-",
+    "desc": "--focus 3"
   },
   {
     "source": "karabiner",
     "rules": "xc_d gh_d",
     "keys": [
       "ctrl",
-      "p"
+      "f (",
+      "shift / caps)"
     ],
-    "action": "up",
+    "action": "right",
+    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "hyper",
+      "6"
+    ],
+    "action": "-",
+    "desc": "--focus 6"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "ˋ (",
+      "any)"
+    ],
+    "action": "lcmd + ˋ",
+    "desc": "System: Tilde key: Plain = Window Switcher, Cmd+Tilde = ~, Cmd+Shift+Tilde = `"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "cmd",
+      "h"
+    ],
+    "action": "opt + backspace",
+    "desc": "System: ctrl j - enter, cmd h - opt del"
+  },
+  {
+    "source": "karabiner | skhd sk",
+    "rules": "xc_e",
+    "keys": [
+      "hyper",
+      "s"
+    ],
+    "action": "cmd + ctrl + right",
+    "desc": "Xcode: Hyper Q/W Switch Tabs A/S history navigate Z/X comments folding D/F Canvas/Refresh | --swap east || yabai -m window --swap west"
+  },
+  {
+    "source": "karabiner",
+    "rules": "gh_e | xc_e",
+    "keys": [
+      "hyper",
+      "q"
+    ],
+    "action": "lcmd + [ | lcmd + lshift + [",
+    "desc": "Ghostty: Hyper Q/W Switch Tabs F zoom window | Xcode: Hyper Q/W Switch Tabs A/S history navigate Z/X comments folding D/F Canvas/Refresh"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_d gh_d",
+    "keys": [
+      "opt",
+      "h"
+    ],
+    "action": "opt + backspace",
     "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
   },
   {
     "source": "karabiner",
     "keys": [
-      "esc"
+      "hyper",
+      "r (",
+      "any)"
     ],
     "action": "-",
-    "desc": "Hydra Actions (g=Ghostty, s=Safari, x=Xcode, Esc/q=Quit)"
+    "desc": "Yabai: hyper R restart"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_d gh_d",
+    "keys": [
+      "ctrl",
+      "d (",
+      "caps)"
+    ],
+    "action": "del",
+    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_d gh_d",
+    "keys": [
+      "ctrl",
+      "u"
+    ],
+    "action": "cmd + backspace",
+    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
   },
   {
     "source": "karabiner",
     "keys": [
-      "q"
+      "rcmd (",
+      "any)"
+    ],
+    "action": "lcmd + lopt + lctrl + lshift | rcmd",
+    "desc": "System: Toggle Hyper/Command on Right Command | System: Toggle Hyper/Command on Right Command"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "cmd",
+      "tab"
+    ],
+    "action": "cmd + tab",
+    "desc": "System: cmd+tab j/k to navigate"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "hyper",
+      "5"
     ],
     "action": "-",
-    "desc": "Hydra Actions (g=Ghostty, s=Safari, x=Xcode, Esc/q=Quit)"
+    "desc": "--focus 5"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "hyper",
+      "g"
+    ],
+    "action": "-",
+    "desc": "--toggle expose"
   },
   {
     "source": "karabiner",
@@ -406,10 +512,31 @@
     "rules": "xc_d gh_d",
     "keys": [
       "ctrl",
-      "f"
+      "n (",
+      "shift / caps)"
     ],
-    "action": "right",
+    "action": "down",
     "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_e",
+    "keys": [
+      "hyper",
+      "x"
+    ],
+    "action": "cmd + ctrl + shift + right",
+    "desc": "Xcode: Hyper Q/W Switch Tabs A/S history navigate Z/X comments folding D/F Canvas/Refresh"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "ctrl",
+      "9 (",
+      "any)"
+    ],
+    "action": "-",
+    "desc": "Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9 | System: Ctrl+9 → Russian, Ctrl+8 → English"
   },
   {
     "source": "karabiner",
@@ -423,31 +550,140 @@
   },
   {
     "source": "karabiner",
-    "keys": [
-      "caps"
-    ],
-    "action": "lctrl | lctrl",
-    "desc": "System: Caps Lock to Control/Escape | Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9"
-  },
-  {
-    "source": "karabiner",
-    "rules": "xc_e",
-    "keys": [
-      "ctrl",
-      "["
-    ],
-    "action": "space lshift + [ return_or_enter",
-    "desc": "Xcode: Shortcuts: Ctrl+, to 'right_arrow -> ' and Ctrl+[ to ' { Enter'"
-  },
-  {
-    "source": "karabiner",
     "rules": "xc_d gh_d",
     "keys": [
       "ctrl",
-      "e"
+      "e (",
+      "shift / caps)"
     ],
     "action": "cmd + right",
     "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_d gh_d | xc_e",
+    "keys": [
+      "ctrl",
+      "a (",
+      "shift / caps)"
+    ],
+    "action": "cmd + left | cmd + left",
+    "desc": "Xcode: Emacs extension | System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "karabiner | skhd sk",
+    "rules": "xc_e",
+    "keys": [
+      "hyper",
+      "z"
+    ],
+    "action": "cmd + ctrl + shift + left",
+    "desc": "Xcode: Hyper Q/W Switch Tabs A/S history navigate Z/X comments folding D/F Canvas/Refresh | --toggle zoom-parent"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "ctrl",
+      "8 (",
+      "any)"
+    ],
+    "action": "-",
+    "desc": "Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9 | System: Ctrl+9 → Russian, Ctrl+8 → English"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "hyper",
+      "m"
+    ],
+    "action": "-",
+    "desc": "--rotate 90"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "lshift (",
+      "any)"
+    ],
+    "action": "lshift | lshift | lshift",
+    "desc": "Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9 | Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9 | Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "hyper",
+      "4"
+    ],
+    "action": "-",
+    "desc": "--focus 4"
+  },
+  {
+    "source": "skhd sk",
+    "keys": [
+      "hyper",
+      "k"
+    ],
+    "action": "-",
+    "desc": "--toggle float"
+  },
+  {
+    "source": "karabiner",
+    "rules": "xc_d gh_d | xc_e",
+    "keys": [
+      "opt",
+      "."
+    ],
+    "action": "cmd + down | cmd + down",
+    "desc": "Xcode: Emacs extension | System: Emacs (Disabled in: Xcode and Ghostty)"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "q (",
+      "any)"
+    ],
+    "action": "-",
+    "desc": "Hydra Actions (g=Ghostty, s=Safari, x=Xcode, Esc/q=Quit)"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "cmd",
+      "opt",
+      "ctrl",
+      "o"
+    ],
+    "action": "-",
+    "desc": "Hydra Mode (cmd opt ctrl O)"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "cmd",
+      "shift",
+      "ˋ"
+    ],
+    "action": "ˋ",
+    "desc": "System: Tilde key: Plain = Window Switcher, Cmd+Tilde = ~, Cmd+Shift+Tilde = `"
+  },
+  {
+    "source": "karabiner",
+    "keys": [
+      "x (",
+      "any)"
+    ],
+    "action": "-",
+    "desc": "Hydra Actions (g=Ghostty, s=Safari, x=Xcode, Esc/q=Quit)"
+  },
+  {
+    "source": "karabiner | skhd sk",
+    "rules": "xc_e",
+    "keys": [
+      "hyper",
+      "d"
+    ],
+    "action": "cmd + opt + p",
+    "desc": "Xcode: Hyper Q/W Switch Tabs A/S history navigate Z/X comments folding D/F Canvas/Refresh | --destroy"
   },
   {
     "source": "karabiner",
@@ -462,30 +698,30 @@
   {
     "source": "skhd sk",
     "keys": [
-      "hyper",
-      "3"
+      "opt",
+      "shift",
+      "t"
     ],
     "action": "-",
-    "desc": "--focus 3"
+    "desc": "--toggle tg_pad"
   },
   {
-    "source": "karabiner | skhd sk",
-    "rules": "xc_e",
+    "source": "karabiner",
     "keys": [
-      "hyper",
-      "s"
+      "lcmd"
     ],
-    "action": "cmd + ctrl + right",
-    "desc": "Xcode: Hyper Q/W Switch Tabs A/S history navigate Z/X comments folding D/F Canvas/Refresh | --swap east || yabai -m window --swap west"
+    "action": "lcmd",
+    "desc": "System: cmd+tab j/k to navigate"
   },
   {
-    "source": "skhd sk",
+    "source": "skhd",
     "keys": [
-      "hyper",
-      "4"
+      "cmd",
+      "ctrl",
+      "i"
     ],
     "action": "-",
-    "desc": "--toggle windowed-fullscreen"
+    "desc": "Movist Pro: --grid 6:6:2:0:2:2 | Остальные: --grid 2:2:0:0:2:1"
   },
   {
     "source": "karabiner",
@@ -507,160 +743,25 @@
     "desc": "--toggle split"
   },
   {
-    "source": "skhd sk",
-    "keys": [],
+    "source": "skhd",
+    "keys": [
+      "cmd",
+      "ctrl",
+      "o"
+    ],
     "action": "-",
-    "desc": ": chord_mode"
+    "desc": "Movist Pro: --grid 6:6:4:0:2:2 | Остальные: --grid 2:2:1:0:1:1"
   },
   {
     "source": "karabiner",
     "rules": "xc_d gh_d | xc_e",
     "keys": [
       "opt",
-      "f"
+      "f (",
+      "shift / caps)"
     ],
     "action": "opt + right | opt + right",
     "desc": "Xcode: Emacs extension | System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "g"
-    ],
-    "action": "-",
-    "desc": "Hydra Actions (g=Ghostty, s=Safari, x=Xcode, Esc/q=Quit)"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "x"
-    ],
-    "action": "-",
-    "desc": "Hydra Actions (g=Ghostty, s=Safari, x=Xcode, Esc/q=Quit)"
-  },
-  {
-    "source": "karabiner",
-    "rules": "xc_d gh_d",
-    "keys": [
-      "ctrl",
-      "y"
-    ],
-    "action": "cmd + v",
-    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "karabiner",
-    "rules": "xc_d gh_d",
-    "keys": [
-      "ctrl",
-      "s"
-    ],
-    "action": "cmd + f",
-    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "fn",
-      "."
-    ],
-    "action": "hyper + t",
-    "desc": "Fluid Voice: Dictation - fn dot, ctrl q"
-  },
-  {
-    "source": "skhd sk",
-    "keys": [
-      "hyper",
-      "k"
-    ],
-    "action": "-",
-    "desc": "--toggle float"
-  },
-  {
-    "source": "skhd",
-    "keys": [
-      "cmd",
-      "ctrl",
-      "i"
-    ],
-    "action": "-",
-    "desc": "Movist Pro: --grid 6:6:2:0:2:2 | Остальные: --grid 2:2:0:0:2:1"
-  },
-  {
-    "source": "skhd",
-    "keys": [
-      "cmd",
-      "ctrl",
-      "l"
-    ],
-    "action": "-",
-    "desc": "Movist Pro: --grid 6:6:4:4:2:2 | Остальные: pass-through (~)"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "cmd",
-      "ˋ"
-    ],
-    "action": "lshift + ˋ",
-    "desc": "System: Tilde key: Plain = Window Switcher, Cmd+Tilde = ~, Cmd+Shift+Tilde = `"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "ctrl",
-      "8"
-    ],
-    "action": "-",
-    "desc": "Caps to Esc/Ctrl + Double LShift to Toggle (ABC/Russian) + Ctrl+8/9 | System: Ctrl+9 → Russian, Ctrl+8 → English"
-  },
-  {
-    "source": "karabiner",
-    "rules": "gh_e | xc_e",
-    "keys": [
-      "hyper",
-      "q"
-    ],
-    "action": "lcmd + [ | lcmd + lshift + [",
-    "desc": "Ghostty: Hyper Q/W Switch Tabs F zoom window | Xcode: Hyper Q/W Switch Tabs A/S history navigate Z/X comments folding D/F Canvas/Refresh"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "cmd",
-      "h"
-    ],
-    "action": "opt + backspace",
-    "desc": "System: ctrl j - enter, cmd h - opt del"
-  },
-  {
-    "source": "skhd",
-    "keys": [
-      "cmd",
-      "ctrl",
-      "n"
-    ],
-    "action": "-",
-    "desc": "Movist Pro: --grid 6:6:0:4:2:2 | Остальные: --grid 2:2:0:1:1:1"
-  },
-  {
-    "source": "karabiner",
-    "keys": [
-      "cmd",
-      "k"
-    ],
-    "action": "cmd + right",
-    "desc": "System: cmd+tab j/k to navigate"
-  },
-  {
-    "source": "skhd",
-    "keys": [
-      "cmd",
-      "ctrl",
-      "u"
-    ],
-    "action": "-",
-    "desc": "Movist Pro: --grid 6:6:0:0:2:2 | Остальные: --grid 2:2:0:0:1:1"
   },
   {
     "source": "skhd",
@@ -673,31 +774,24 @@
     "desc": "Movist Pro: --grid 6:6:2:4:2:2 | Остальные: --grid 2:2:1:0:1:2"
   },
   {
-    "source": "skhd",
-    "keys": [
-      "cmd",
-      "ctrl",
-      "m"
-    ],
-    "action": "-",
-    "desc": "Movist Pro: --grid 6:6:2:4:2:2 | Остальные: --grid 2:2:0:1:2:1"
-  },
-  {
     "source": "karabiner",
+    "rules": "xc_d gh_d | xc_e",
     "keys": [
-      "s"
+      "opt",
+      "d"
     ],
-    "action": "-",
-    "desc": "Hydra Actions (g=Ghostty, s=Safari, x=Xcode, Esc/q=Quit)"
+    "action": "opt + del | opt + shift + del",
+    "desc": "Xcode: Emacs extension | System: Emacs (Disabled in: Xcode and Ghostty)"
   },
   {
     "source": "karabiner",
     "rules": "xc_e",
     "keys": [
       "ctrl",
-      ","
+      "[ (",
+      "any)"
     ],
-    "action": "right space - lshift + . space",
+    "action": "space lshift + [ return_or_enter",
     "desc": "Xcode: Shortcuts: Ctrl+, to 'right_arrow -> ' and Ctrl+[ to ' { Enter'"
   },
   {
@@ -712,29 +806,28 @@
   {
     "source": "karabiner",
     "keys": [
-      "lcmd"
+      "g (",
+      "any)"
     ],
-    "action": "lcmd",
-    "desc": "System: cmd+tab j/k to navigate"
+    "action": "-",
+    "desc": "Hydra Actions (g=Ghostty, s=Safari, x=Xcode, Esc/q=Quit)"
   },
   {
     "source": "karabiner",
-    "rules": "xc_d gh_d | xc_e",
     "keys": [
-      "opt",
-      ","
+      "esc (",
+      "any)"
     ],
-    "action": "cmd + up | cmd + up",
-    "desc": "Xcode: Emacs extension | System: Emacs (Disabled in: Xcode and Ghostty)"
+    "action": "-",
+    "desc": "Hydra Actions (g=Ghostty, s=Safari, x=Xcode, Esc/q=Quit)"
   },
   {
-    "source": "karabiner",
-    "rules": "xc_d gh_d",
+    "source": "skhd sk",
     "keys": [
-      "ctrl",
-      "d"
+      "hyper",
+      "2"
     ],
-    "action": "del",
-    "desc": "System: Emacs (Disabled in: Xcode and Ghostty)"
+    "action": "-",
+    "desc": "--focus 2"
   }
 ]

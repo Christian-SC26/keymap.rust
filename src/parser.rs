@@ -25,13 +25,35 @@ struct ShortcutData {
     entries: Vec<ShortcutEntry>,
 }
 
+fn load_app_aliases() -> HashMap<String, String> {
+    let mut aliases = HashMap::new();
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    
+    let alias_paths = [
+        "app_aliases.json".to_string(),
+        "src/app_aliases.json".to_string(),
+        format!("{}/.config/karabiner/app_aliases.json", home),
+    ];
+
+    for path in &alias_paths {
+        if let Ok(c) = fs::read_to_string(path) {
+            if let Ok(parsed) = serde_json::from_str::<HashMap<String, String>>(&c) {
+                aliases = parsed;
+                break;
+            }
+        }
+    }
+    aliases
+}
+
 pub fn run_parser(output_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut all_shortcuts: HashMap<String, ShortcutData> = HashMap::new();
 
     let home = std::env::var("HOME")?;
+    let aliases = load_app_aliases();
     
     let karabiner_path = format!("{}/.config/karabiner/karabiner.json", home);
-    if let Err(e) = parse_karabiner_json(&karabiner_path, &mut all_shortcuts) {
+    if let Err(e) = parse_karabiner_json(&karabiner_path, &mut all_shortcuts, &aliases) {
         eprintln!("[Warn] Error parsing Karabiner: {}", e);
     }
 
@@ -148,7 +170,28 @@ fn process_modifiers(mods: &[String]) -> String {
     sorted_mods.join(" + ")
 }
 
-fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData>) -> Result<(), Box<dyn std::error::Error>> {
+fn parse_action_array(to_array: &[serde_json::Value]) -> Vec<String> {
+    let mut actions = Vec::new();
+    for t in to_array {
+        if let Some(t_key_code) = t.get("key_code").or_else(|| t.get("consumer_key_code")).and_then(|v| v.as_str()) {
+            let t_key = format_key(t_key_code);
+            if let Some(to_mods_array) = t.get("modifiers").and_then(|m| m.as_array()) {
+                let t_mods_list: Vec<String> = to_mods_array.iter().filter_map(|m| m.as_str()).map(format_key).collect();
+                let t_mods = process_modifiers(&t_mods_list);
+                if t_mods.is_empty() {
+                    actions.push(t_key);
+                } else {
+                    actions.push(format!("{} + {}", t_mods, t_key));
+                }
+            } else {
+                actions.push(t_key);
+            }
+        }
+    }
+    actions
+}
+
+fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData>, aliases: &HashMap<String, String>) -> Result<(), Box<dyn std::error::Error>> {
     if !Path::new(path).exists() {
         return Ok(());
     }
@@ -186,7 +229,19 @@ fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData
                                 String::new()
                             };
 
-                            let trigger = if !mods.is_empty() && !key.is_empty() {
+                            let optional_mods = from.get("modifiers").and_then(|m| m.get("optional"));
+                            let mut opt_str = String::new();
+                            if let Some(opt_array) = optional_mods.and_then(|m| m.as_array()) {
+                                let opt_list: Vec<String> = opt_array.iter().filter_map(|m| m.as_str()).map(|s| s.to_string()).collect();
+                                if opt_list.iter().any(|s| s == "any") {
+                                    opt_str = " (+ any)".to_string();
+                                } else if !opt_list.is_empty() {
+                                    let formatted_opt_list: Vec<String> = opt_list.into_iter().map(|s| format_key(&s)).collect();
+                                    opt_str = format!(" (+ {})", formatted_opt_list.join(" / "));
+                                }
+                            }
+
+                            let trigger_base = if !mods.is_empty() && !key.is_empty() {
                                 format!("{} + {}", mods, key)
                             } else if !key.is_empty() {
                                 key
@@ -196,7 +251,18 @@ fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData
                                 "-".to_string()
                             };
 
-                            if trigger == "-" && manip.get("to").is_none() {
+                            let trigger = if !opt_str.is_empty() && trigger_base != "-" {
+                                format!("{}{}", trigger_base, opt_str)
+                            } else {
+                                trigger_base
+                            };
+
+                            if trigger == "-" 
+                                && manip.get("to").is_none()
+                                && manip.get("to_if_alone").is_none()
+                                && manip.get("to_if_held_down").is_none()
+                                && manip.get("to_after_key_up").is_none()
+                            {
                                 continue;
                             }
 
@@ -211,7 +277,7 @@ fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData
                                     if let Some(bundles) = cond.get("bundle_identifiers").and_then(|b| b.as_array()).filter(|_| is_enable || is_disable) {
                                         for b in bundles {
                                             if let Some(b_str) = b.as_str() {
-                                                let app_slug = get_app_slug(b_str);
+                                                let app_slug = get_app_slug(b_str, aliases);
                                                 let suffix = if is_enable { "_e" } else { "_d" };
                                                 tags.push(format!("{}{}", app_slug, suffix));
                                             }
@@ -222,27 +288,37 @@ fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData
                             
                             let rules_str = tags.join(" ");
 
-                            let mut actions = Vec::new();
+                            let mut action_parts = Vec::new();
+
                             if let Some(to_array) = manip.get("to").and_then(|t| t.as_array()) {
-                                for t in to_array {
-                                    if let Some(t_key_code) = t.get("key_code").or_else(|| t.get("consumer_key_code")).and_then(|v| v.as_str()) {
-                                        let t_key = format_key(t_key_code);
-                                        if let Some(to_mods_array) = t.get("modifiers").and_then(|m| m.as_array()) {
-                                            let t_mods_list: Vec<String> = to_mods_array.iter().filter_map(|m| m.as_str()).map(format_key).collect();
-                                            let t_mods = process_modifiers(&t_mods_list);
-                                            if t_mods.is_empty() {
-                                                actions.push(t_key);
-                                            } else {
-                                                actions.push(format!("{} + {}", t_mods, t_key));
-                                            }
-                                        } else {
-                                            actions.push(t_key);
-                                        }
-                                    }
+                                let to_actions = parse_action_array(to_array);
+                                if !to_actions.is_empty() {
+                                    action_parts.push(to_actions.join(" "));
                                 }
                             }
 
-                            let action_str = if actions.is_empty() { "-".to_string() } else { actions.join(" ") };
+                            if let Some(alone_array) = manip.get("to_if_alone").and_then(|t| t.as_array()) {
+                                let alone_actions = parse_action_array(alone_array);
+                                if !alone_actions.is_empty() {
+                                    action_parts.push(format!("{} (tapped)", alone_actions.join(" ")));
+                                }
+                            }
+
+                            if let Some(held_array) = manip.get("to_if_held_down").and_then(|t| t.as_array()) {
+                                let held_actions = parse_action_array(held_array);
+                                if !held_actions.is_empty() {
+                                    action_parts.push(format!("{} (held)", held_actions.join(" ")));
+                                }
+                            }
+
+                            if let Some(released_array) = manip.get("to_after_key_up").and_then(|t| t.as_array()) {
+                                let released_actions = parse_action_array(released_array);
+                                if !released_actions.is_empty() {
+                                    action_parts.push(format!("{} (released)", released_actions.join(" ")));
+                                }
+                            }
+
+                            let action_str = if action_parts.is_empty() { "-".to_string() } else { action_parts.join(" / ") };
                             add_to_dict(shortcuts, "karabiner", &rules_str, &trigger, &action_str, &description);
                         }
                     }
@@ -254,15 +330,13 @@ fn parse_karabiner_json(path: &str, shortcuts: &mut HashMap<String, ShortcutData
     Ok(())
 }
 
-fn get_app_slug(bundle_id: &str) -> String {
+fn get_app_slug(bundle_id: &str, aliases: &HashMap<String, String>) -> String {
     let parts: Vec<&str> = bundle_id.split('.').collect();
     let name = parts.last().unwrap_or(&bundle_id).to_lowercase();
-    match name.as_str() {
-        "xcode" => "xc".to_string(),
-        "ghostty" => "gh".to_string(),
-        "safari" => "sf".to_string(),
-        "chrome" | "googlechrome" => "ch".to_string(),
-        _ => name.chars().filter(|c| c.is_alphanumeric()).take(2).collect(),
+    if let Some(slug) = aliases.get(&name) {
+        slug.clone()
+    } else {
+        name.chars().filter(|c| c.is_alphanumeric()).take(2).collect()
     }
 }
 
@@ -437,4 +511,95 @@ fn export_json(shortcuts: HashMap<String, ShortcutData>, output_path: &str) -> R
     println!("Успешно! JSON сохранен по пути: {}", output_path);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_action_array() {
+        let json_str = r#"[
+            {
+                "key_code": "escape"
+            },
+            {
+                "key_code": "tab",
+                "modifiers": ["left_shift", "left_command"]
+            }
+        ]"#;
+        let val: serde_json::Value = serde_json::from_str(json_str).unwrap();
+        let arr = val.as_array().unwrap();
+        let parsed = parse_action_array(arr);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0], "esc");
+        assert_eq!(parsed[1], "lcmd + lshift + tab");
+    }
+
+    #[test]
+    fn test_parse_karabiner_complex_modifications() {
+        let json_content = r#"{
+            "profiles": [
+                {
+                    "name": "Default profile",
+                    "complex_modifications": {
+                        "rules": [
+                            {
+                                "description": "Caps Lock to Hyper or Escape",
+                                "manipulators": [
+                                    {
+                                        "type": "basic",
+                                        "from": {
+                                            "key_code": "caps_lock",
+                                            "modifiers": {
+                                                "optional": ["any"]
+                                            }
+                                        },
+                                        "to": [
+                                            {
+                                                "key_code": "left_shift",
+                                                "modifiers": ["left_command", "left_control", "left_option"]
+                                            }
+                                        ],
+                                        "to_if_alone": [
+                                            {
+                                                "key_code": "escape"
+                                            }
+                                        ],
+                                        "to_if_held_down": [
+                                            {
+                                                "key_code": "tab"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        }"#;
+
+        let mut shortcuts = HashMap::new();
+        let aliases = HashMap::new();
+        
+        let path = "test_karabiner_mock.json";
+        fs::write(path, json_content).unwrap();
+        
+        let res = parse_karabiner_json(path, &mut shortcuts, &aliases);
+        fs::remove_file(path).ok();
+        
+        assert!(res.is_ok());
+        
+        let trigger_key = "caps (+ any)";
+        assert!(shortcuts.contains_key(trigger_key));
+        
+        let data = shortcuts.get(trigger_key).unwrap();
+        assert_eq!(data.entries.len(), 1);
+        let entry = &data.entries[0];
+        assert_eq!(entry.description, "Caps Lock to Hyper or Escape");
+        
+        assert!(entry.action.contains("esc (tapped)"));
+        assert!(entry.action.contains("tab (held)"));
+    }
 }
